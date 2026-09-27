@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icon.png">
     <title>样品拍照拼图</title>
-    <link rel="stylesheet" href="app.css?v=cache5">
+    <link rel="stylesheet" href="app.css?v=dock6">
 </head>
 <body>
     <div id="wechatBar" class="banner banner-warn" hidden>
@@ -23,53 +23,65 @@
         点底部分享 → 添加到主屏幕，以后直接从桌面打开。
     </div>
 
-    <header class="top">
-        <h1>样品拼图</h1>
-        <p id="statusText" class="status">本批 0 / 9</p>
-        <div id="progressBar" class="progress"><i id="progressFill"></i></div>
-    </header>
+    <div class="dock">
+        <header class="top">
+            <div class="top-row">
+                <div>
+                    <h1>样品拼图</h1>
+                    <p id="statusText" class="status">本批 0 / 9</p>
+                </div>
+                <div id="progressBar" class="progress-side" aria-hidden="true"><i id="progressFill"></i></div>
+            </div>
+        </header>
 
-    <section id="homeView">
-        <div class="hero-btns">
-            <label class="btn-main file-btn">
-                拍照
-                <input id="fileShot" type="file" accept="image/*" capture="environment">
-            </label>
-            <label class="file-btn file-btn-sub">
-                相册多选
-                <input id="fileAlbum" type="file" accept="image/*" multiple>
-            </label>
-        </div>
-        <div class="btn-row">
-            <button id="btnEarlyCollage" class="btn-ghost" type="button" disabled>拼图</button>
-            <button id="btnClear" class="btn-ghost" type="button">清空</button>
-        </div>
+        <section id="homeView">
+            <div class="hero-btns">
+                <label class="btn-main file-btn">
+                    拍照
+                    <input id="fileShot" type="file" accept="image/*" capture="environment">
+                </label>
+                <label class="file-btn file-btn-sub">
+                    相册多选
+                    <input id="fileAlbum" type="file" accept="image/*" multiple>
+                </label>
+            </div>
+            <div class="btn-row">
+                <button id="btnEarlyCollage" class="btn-ghost" type="button" disabled>拼图</button>
+                <button id="btnClear" class="btn-ghost" type="button">清空</button>
+            </div>
+        </section>
+
+        <section id="editorView" hidden>
+            <div class="text-row">
+                <input id="textInput" type="text" inputmode="text" placeholder="型号，例如 20X-E1">
+            </div>
+            <div class="editor-tools">
+                <button id="toolText" data-tool="text" type="button">文字</button>
+                <button id="toolArrow" data-tool="arrow" type="button">箭头</button>
+                <button id="toolCircle" data-tool="circle" type="button">圆圈</button>
+                <button id="btnUndo" type="button">撤销</button>
+            </div>
+            <div id="colorRow" class="color-row">
+                <button class="color-dot is-active" data-color="#ff4d4f" style="background:#ff4d4f" type="button"></button>
+                <button class="color-dot" data-color="#ffffff" style="background:#ffffff" type="button"></button>
+                <button class="color-dot" data-color="#ffd666" style="background:#ffd666" type="button"></button>
+            </div>
+            <div class="btn-row sticky-actions">
+                <button id="btnSaveEdit" class="btn-ok" type="button">完成</button>
+                <button id="btnCancelEdit" class="btn-ghost" type="button">跳过</button>
+            </div>
+        </section>
+    </div>
+
+    <section id="homeThumbs">
         <div id="thumbList" class="thumb-list"></div>
     </section>
 
-    <section id="editorView" hidden>
-        <div class="text-row">
-            <input id="textInput" type="text" inputmode="text" placeholder="型号，例如 20X-E1">
-        </div>
-        <div class="editor-tools">
-            <button id="toolText" data-tool="text" type="button">文字</button>
-            <button id="toolArrow" data-tool="arrow" type="button">箭头</button>
-            <button id="toolCircle" data-tool="circle" type="button">圆圈</button>
-            <button id="btnUndo" type="button">撤销</button>
-        </div>
-        <div id="colorRow" class="color-row">
-            <button class="color-dot is-active" data-color="#ff4d4f" style="background:#ff4d4f" type="button"></button>
-            <button class="color-dot" data-color="#ffffff" style="background:#ffffff" type="button"></button>
-            <button class="color-dot" data-color="#ffd666" style="background:#ffd666" type="button"></button>
-        </div>
+    <div id="editorCanvasHost" class="editor-canvas-host" hidden>
         <div class="editor-wrap">
             <canvas id="editorCanvas"></canvas>
         </div>
-        <div class="btn-row sticky-actions">
-            <button id="btnSaveEdit" class="btn-ok" type="button">完成</button>
-            <button id="btnCancelEdit" class="btn-ghost" type="button">跳过</button>
-        </div>
-    </section>
+    </div>
 
     <section id="collageView" hidden>
         <img id="collagePreview" class="collage-preview" alt="拼图预览">
@@ -86,11 +98,6 @@
             <button id="btnCloseSheet" class="btn-ok" type="button">关闭</button>
         </div>
     </div>
-
-    <details class="log-wrap">
-        <summary>运行记录</summary>
-        <div id="logBox" class="log-box"></div>
-    </details>
 
     <div id="toast" class="toast" hidden></div>
 

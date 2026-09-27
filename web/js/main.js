@@ -13,10 +13,11 @@
         chromeBar: $("chromeBar"),
         statusText: $("statusText"),
         progressFill: $("progressFill"),
-        logBox: $("logBox"),
         toast: $("toast"),
         homeView: $("homeView"),
+        homeThumbs: $("homeThumbs"),
         editorView: $("editorView"),
+        editorCanvasHost: $("editorCanvasHost"),
         collageView: $("collageView"),
         thumbList: $("thumbList"),
         btnEarlyCollage: $("btnEarlyCollage"),
@@ -82,11 +83,9 @@
     }
 
     function logLine(message) {
-        const time = new Date().toLocaleTimeString("zh-CN", { hour12: false });
-        const line = document.createElement("div");
-        line.textContent = time + "  " + message;
-        els.logBox.appendChild(line);
-        els.logBox.scrollTop = els.logBox.scrollHeight;
+        if (typeof console !== "undefined" && console.log) {
+            console.log(message);
+        }
     }
 
     /**
@@ -95,7 +94,13 @@
      */
     function showView(name) {
         els.homeView.hidden = name !== "home";
+        if (els.homeThumbs) {
+            els.homeThumbs.hidden = name !== "home";
+        }
         els.editorView.hidden = name !== "editor";
+        if (els.editorCanvasHost) {
+            els.editorCanvasHost.hidden = name !== "editor";
+        }
         els.collageView.hidden = name !== "collage";
     }
 
@@ -120,8 +125,9 @@
             const n = batchPhotos.length;
             els.statusText.textContent = "本批 " + n + " / " + CONFIG.BATCH_SIZE;
             if (els.progressFill) {
-                els.progressFill.style.width =
-                    Math.min(100, (n / CONFIG.BATCH_SIZE) * 100) + "%";
+                const pct = Math.min(100, (n / CONFIG.BATCH_SIZE) * 100);
+                els.progressFill.style.height = pct + "%";
+                els.progressFill.style.width = "100%";
             }
             els.btnEarlyCollage.disabled = n < 1;
             els.thumbList.innerHTML = "";
@@ -138,7 +144,8 @@
                 const del = document.createElement("button");
                 del.type = "button";
                 del.className = "thumb-del";
-                del.textContent = "删";
+                del.textContent = "×";
+                del.setAttribute("aria-label", "删除");
                 del.addEventListener("click", function () {
                     window.PhotoStorage.deletePhoto(photo.id)
                         .then(function () {

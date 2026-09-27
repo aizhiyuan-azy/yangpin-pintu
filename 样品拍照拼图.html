@@ -45,13 +45,42 @@ body {
     position: relative;
 }
 
-.banner,
-.top,
-section,
-.log-wrap,
-.save-sheet {
-    position: relative;
-    z-index: 1;
+.dock {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    background: #f4f1ea;
+    padding-bottom: 8px;
+}
+
+.top-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.top-row > div:first-child {
+    flex: 1;
+}
+
+.progress-side {
+    width: 10px;
+    height: 56px;
+    border-radius: 99px;
+    background: #e4dfd6;
+    overflow: hidden;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.progress-side i {
+    display: block;
+    width: 100%;
+    height: 0;
+    border-radius: 99px;
+    background: #6b8f71;
 }
 
 .banner {
@@ -108,15 +137,15 @@ h1 {
 
 .hero-btns {
     display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin: 0 0 22px;
+    flex-direction: row;
+    gap: 12px;
+    margin: 0 0 12px;
 }
 
 .btn-row {
     display: flex;
-    gap: 14px;
-    margin: 0 0 22px;
+    gap: 12px;
+    margin: 0 0 10px;
 }
 
 .file-btn,
@@ -125,10 +154,10 @@ button {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 72px;
+    min-height: 56px;
     border: 0;
     border-radius: 12px;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 600;
     color: var(--text);
     background: var(--card);
@@ -157,11 +186,13 @@ button:disabled {
 .btn-main {
     color: #fff;
     background: #6b8f71;
+    flex: 1;
 }
 
 .file-btn-sub {
     background: #fff;
     border: 1px solid #d7d1c7;
+    flex: 1;
 }
 
 .btn-ok {
@@ -195,6 +226,7 @@ button:disabled {
     aspect-ratio: 3 / 4;
     object-fit: cover;
     display: block;
+    pointer-events: none;
 }
 
 .thumb-cap {
@@ -210,35 +242,22 @@ button:disabled {
     position: absolute;
     top: 6px;
     right: 6px;
-    min-height: 32px;
-    padding: 0 10px;
-    font-size: 13px;
-    border-radius: 12px;
-    background: #fff;
+    width: 28px;
+    min-height: 28px;
+    padding: 0;
+    font-size: 18px;
+    line-height: 1;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
     box-shadow: none;
 }
 
-.log-wrap {
-    margin-top: 10px;
-    color: var(--muted);
-    font-size: 13px;
+.editor-canvas-host {
+    margin-top: 6px;
 }
 
-.log-wrap summary {
-    cursor: pointer;
-    padding: 8px 0;
-}
-
-.log-box {
-    background: #fff;
-    border: 2px solid var(--line);
-    border-radius: 16px;
-    max-height: 140px;
-    overflow: auto;
-    padding: 10px 12px;
-    font-size: 12px;
-    color: #6d5a56;
-    line-height: 1.45;
+#editorCanvas {
+    max-height: 46vh;
 }
 
 .editor-tools,
@@ -352,53 +371,65 @@ button:disabled {
         点底部分享 → 添加到主屏幕，以后直接从桌面打开。
     </div>
 
-    <header class="top">
-        <h1>样品拼图</h1>
-        <p id="statusText" class="status">本批 0 / 9</p>
-        <div id="progressBar" class="progress"><i id="progressFill"></i></div>
-    </header>
+    <div class="dock">
+        <header class="top">
+            <div class="top-row">
+                <div>
+                    <h1>样品拼图</h1>
+                    <p id="statusText" class="status">本批 0 / 9</p>
+                </div>
+                <div id="progressBar" class="progress-side" aria-hidden="true"><i id="progressFill"></i></div>
+            </div>
+        </header>
 
-    <section id="homeView">
-        <div class="hero-btns">
-            <label class="btn-main file-btn">
-                拍照
-                <input id="fileShot" type="file" accept="image/*" capture="environment">
-            </label>
-            <label class="file-btn file-btn-sub">
-                相册多选
-                <input id="fileAlbum" type="file" accept="image/*" multiple>
-            </label>
-        </div>
-        <div class="btn-row">
-            <button id="btnEarlyCollage" class="btn-ghost" type="button" disabled>拼图</button>
-            <button id="btnClear" class="btn-ghost" type="button">清空</button>
-        </div>
+        <section id="homeView">
+            <div class="hero-btns">
+                <label class="btn-main file-btn">
+                    拍照
+                    <input id="fileShot" type="file" accept="image/*" capture="environment">
+                </label>
+                <label class="file-btn file-btn-sub">
+                    相册多选
+                    <input id="fileAlbum" type="file" accept="image/*" multiple>
+                </label>
+            </div>
+            <div class="btn-row">
+                <button id="btnEarlyCollage" class="btn-ghost" type="button" disabled>拼图</button>
+                <button id="btnClear" class="btn-ghost" type="button">清空</button>
+            </div>
+        </section>
+
+        <section id="editorView" hidden>
+            <div class="text-row">
+                <input id="textInput" type="text" inputmode="text" placeholder="型号，例如 20X-E1">
+            </div>
+            <div class="editor-tools">
+                <button id="toolText" data-tool="text" type="button">文字</button>
+                <button id="toolArrow" data-tool="arrow" type="button">箭头</button>
+                <button id="toolCircle" data-tool="circle" type="button">圆圈</button>
+                <button id="btnUndo" type="button">撤销</button>
+            </div>
+            <div id="colorRow" class="color-row">
+                <button class="color-dot is-active" data-color="#ff4d4f" style="background:#ff4d4f" type="button"></button>
+                <button class="color-dot" data-color="#ffffff" style="background:#ffffff" type="button"></button>
+                <button class="color-dot" data-color="#ffd666" style="background:#ffd666" type="button"></button>
+            </div>
+            <div class="btn-row sticky-actions">
+                <button id="btnSaveEdit" class="btn-ok" type="button">完成</button>
+                <button id="btnCancelEdit" class="btn-ghost" type="button">跳过</button>
+            </div>
+        </section>
+    </div>
+
+    <section id="homeThumbs">
         <div id="thumbList" class="thumb-list"></div>
     </section>
 
-    <section id="editorView" hidden>
-        <div class="text-row">
-            <input id="textInput" type="text" inputmode="text" placeholder="型号，例如 20X-E1">
-        </div>
-        <div class="editor-tools">
-            <button id="toolText" data-tool="text" type="button">文字</button>
-            <button id="toolArrow" data-tool="arrow" type="button">箭头</button>
-            <button id="toolCircle" data-tool="circle" type="button">圆圈</button>
-            <button id="btnUndo" type="button">撤销</button>
-        </div>
-        <div id="colorRow" class="color-row">
-            <button class="color-dot is-active" data-color="#ff4d4f" style="background:#ff4d4f" type="button"></button>
-            <button class="color-dot" data-color="#ffffff" style="background:#ffffff" type="button"></button>
-            <button class="color-dot" data-color="#ffd666" style="background:#ffd666" type="button"></button>
-        </div>
+    <div id="editorCanvasHost" class="editor-canvas-host" hidden>
         <div class="editor-wrap">
             <canvas id="editorCanvas"></canvas>
         </div>
-        <div class="btn-row sticky-actions">
-            <button id="btnSaveEdit" class="btn-ok" type="button">完成</button>
-            <button id="btnCancelEdit" class="btn-ghost" type="button">跳过</button>
-        </div>
-    </section>
+    </div>
 
     <section id="collageView" hidden>
         <img id="collagePreview" class="collage-preview" alt="拼图预览">
@@ -415,11 +446,6 @@ button:disabled {
             <button id="btnCloseSheet" class="btn-ok" type="button">关闭</button>
         </div>
     </div>
-
-    <details class="log-wrap">
-        <summary>运行记录</summary>
-        <div id="logBox" class="log-box"></div>
-    </details>
 
     <div id="toast" class="toast" hidden></div>
 
@@ -1578,10 +1604,11 @@ window.APP_CONFIG = {
         chromeBar: $("chromeBar"),
         statusText: $("statusText"),
         progressFill: $("progressFill"),
-        logBox: $("logBox"),
         toast: $("toast"),
         homeView: $("homeView"),
+        homeThumbs: $("homeThumbs"),
         editorView: $("editorView"),
+        editorCanvasHost: $("editorCanvasHost"),
         collageView: $("collageView"),
         thumbList: $("thumbList"),
         btnEarlyCollage: $("btnEarlyCollage"),
@@ -1647,11 +1674,9 @@ window.APP_CONFIG = {
     }
 
     function logLine(message) {
-        const time = new Date().toLocaleTimeString("zh-CN", { hour12: false });
-        const line = document.createElement("div");
-        line.textContent = time + "  " + message;
-        els.logBox.appendChild(line);
-        els.logBox.scrollTop = els.logBox.scrollHeight;
+        if (typeof console !== "undefined" && console.log) {
+            console.log(message);
+        }
     }
 
     /**
@@ -1660,7 +1685,13 @@ window.APP_CONFIG = {
      */
     function showView(name) {
         els.homeView.hidden = name !== "home";
+        if (els.homeThumbs) {
+            els.homeThumbs.hidden = name !== "home";
+        }
         els.editorView.hidden = name !== "editor";
+        if (els.editorCanvasHost) {
+            els.editorCanvasHost.hidden = name !== "editor";
+        }
         els.collageView.hidden = name !== "collage";
     }
 
@@ -1685,8 +1716,9 @@ window.APP_CONFIG = {
             const n = batchPhotos.length;
             els.statusText.textContent = "本批 " + n + " / " + CONFIG.BATCH_SIZE;
             if (els.progressFill) {
-                els.progressFill.style.width =
-                    Math.min(100, (n / CONFIG.BATCH_SIZE) * 100) + "%";
+                const pct = Math.min(100, (n / CONFIG.BATCH_SIZE) * 100);
+                els.progressFill.style.height = pct + "%";
+                els.progressFill.style.width = "100%";
             }
             els.btnEarlyCollage.disabled = n < 1;
             els.thumbList.innerHTML = "";
@@ -1703,7 +1735,8 @@ window.APP_CONFIG = {
                 const del = document.createElement("button");
                 del.type = "button";
                 del.className = "thumb-del";
-                del.textContent = "删";
+                del.textContent = "×";
+                del.setAttribute("aria-label", "删除");
                 del.addEventListener("click", function () {
                     window.PhotoStorage.deletePhoto(photo.id)
                         .then(function () {
