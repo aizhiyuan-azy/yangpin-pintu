@@ -3,8 +3,8 @@
   "short_name": "样品拼图",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#121212",
-  "theme_color": "#121212",
+  "background_color": "#fff4ef",
+  "theme_color": "#fff4ef",
   "icons": [
     {
       "src": "icon.png",

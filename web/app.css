@@ -1,12 +1,13 @@
-/* 车间手机页：大按钮、深色卡片，戴手套也能点 */
+/* 浅色可爱风：大按钮、拉开间距，不铺满黑底 */
 :root {
-    --bg: #0f1419;
-    --card: #1a222c;
-    --text: #f4f7fb;
-    --muted: #8b98a8;
-    --accent: #ff5a4f;
-    --ok: #3db88a;
-    --line: rgba(255, 255, 255, 0.08);
+    --bg: #fff4ef;
+    --card: #ffffff;
+    --text: #3d2c2a;
+    --muted: #8a706b;
+    --accent: #ff6b81;
+    --accent-2: #ff9f43;
+    --ok: #2ec4a3;
+    --line: #f0d8d2;
 }
 
 * {
@@ -17,7 +18,7 @@ html,
 body {
     margin: 0;
     padding: 0;
-    background: radial-gradient(1200px 500px at 50% -120px, #243044 0%, var(--bg) 55%);
+    background-color: #fff4ef;
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
         "Microsoft YaHei", "Noto Sans SC", sans-serif;
@@ -27,50 +28,91 @@ body {
     max-width: 720px;
     margin: 0 auto;
     min-height: 100vh;
-    padding: 16px 16px 28px;
+    padding: 20px 18px 36px;
+    position: relative;
+}
+
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    z-index: 0;
+    pointer-events: none;
+    border-radius: 50%;
+}
+
+body::before {
+    width: 220px;
+    height: 220px;
+    left: -70px;
+    top: -50px;
+    background: #ffd6de;
+}
+
+body::after {
+    width: 180px;
+    height: 180px;
+    right: -50px;
+    bottom: 80px;
+    background: #d8f3ee;
+}
+
+.banner,
+.top,
+section,
+.log-wrap,
+.save-sheet {
+    position: relative;
+    z-index: 1;
 }
 
 .banner {
-    padding: 10px 12px;
-    border-radius: 12px;
-    margin-bottom: 10px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    margin-bottom: 12px;
     font-size: 13px;
     line-height: 1.45;
 }
 
 .banner-warn {
-    background: rgba(255, 90, 79, 0.16);
-    color: #ffd2ce;
+    background: #ffe8e4;
+    color: #b5453a;
 }
 
 .banner-info {
-    background: rgba(90, 158, 255, 0.16);
-    color: #cfe3ff;
+    background: #e7f3ff;
+    color: #2a628f;
 }
 
 .top {
-    margin: 6px 0 16px;
+    margin: 8px 0 22px;
+}
+
+.eyebrow {
+    margin: 0 0 6px;
+    color: var(--accent);
+    font-size: 13px;
 }
 
 h1 {
-    font-size: 24px;
-    letter-spacing: 0.04em;
-    margin: 0 0 4px;
+    font-size: 30px;
+    margin: 0 0 8px;
+    font-weight: 800;
 }
 
 .status,
 .hint {
     color: var(--muted);
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.5;
     margin: 0;
 }
 
 .progress {
-    margin-top: 12px;
-    height: 6px;
+    margin-top: 14px;
+    height: 10px;
     border-radius: 99px;
-    background: rgba(255, 255, 255, 0.08);
+    background: #ffe1d8;
     overflow: hidden;
 }
 
@@ -79,19 +121,41 @@ h1 {
     height: 100%;
     width: 0;
     border-radius: 99px;
-    background: linear-gradient(90deg, #ff7a45, var(--accent));
-    transition: width 0.25s ease;
+    background: #ff6b81;
+}
+
+.hero-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 0 0 22px;
+}
+
+.btn-row {
+    display: flex;
+    gap: 14px;
+    margin: 0 0 22px;
+}
+
+.file-btn,
+button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 72px;
+    border: 0;
+    border-radius: 22px;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    background: var(--card);
+    touch-action: manipulation;
 }
 
 .file-btn {
     position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     overflow: hidden;
-    min-height: 52px;
-    border-radius: 14px;
-    font-size: 16px;
 }
 
 .file-btn input {
@@ -104,67 +168,52 @@ h1 {
     font-size: 80px;
 }
 
-.hero-btns,
-.btn-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin: 0 0 12px;
-}
-
-button {
-    border: 0;
-    border-radius: 14px;
-    min-height: 48px;
-    padding: 0 16px;
-    font-size: 16px;
-    color: #fff;
-    background: var(--card);
-    touch-action: manipulation;
+.btn-emoji {
+    font-size: 22px;
 }
 
 button:disabled {
-    opacity: 0.35;
+    opacity: 0.4;
 }
 
 .btn-main {
-    background: linear-gradient(180deg, #ff7466 0%, var(--accent) 100%);
-    flex: 1 1 150px;
-    font-weight: 700;
-    box-shadow: 0 8px 20px rgba(255, 90, 79, 0.25);
+    color: #fff;
+    background: #ff6b81;
+    box-shadow: 0 10px 0 #e24e64;
 }
 
 .file-btn-sub {
-    background: var(--card);
-    flex: 1 1 120px;
-    border: 1px solid var(--line);
+    background: #fff;
+    border: 3px solid #ffd0c8;
+    box-shadow: 0 10px 0 #f3c4bb;
 }
 
 .btn-ok {
-    background: linear-gradient(180deg, #4fd0a1 0%, var(--ok) 100%);
-    flex: 1 1 140px;
-    font-weight: 700;
+    color: #fff;
+    background: #2ec4a3;
+    box-shadow: 0 8px 0 #1fa888;
+    flex: 1;
 }
 
 .btn-ghost {
-    background: transparent;
-    border: 1px solid var(--line);
-    color: #d7dee8;
-    flex: 1 1 90px;
+    flex: 1;
+    background: #fff;
+    border: 3px solid #ead7d2;
+    box-shadow: 0 8px 0 #e2cdc7;
 }
 
 .thumb-list {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    gap: 12px;
 }
 
 .thumb-card {
     position: relative;
-    background: #0b0f14;
-    border-radius: 14px;
+    background: #fff;
+    border-radius: 18px;
     overflow: hidden;
-    border: 1px solid var(--line);
+    border: 3px solid #ffe1d8;
 }
 
 .thumb-card img {
@@ -176,8 +225,8 @@ button:disabled {
 
 .thumb-cap {
     font-size: 12px;
-    padding: 6px 8px;
-    color: #e8eef6;
+    padding: 8px;
+    color: var(--text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -187,33 +236,34 @@ button:disabled {
     position: absolute;
     top: 6px;
     right: 6px;
-    min-height: 28px;
-    padding: 0 8px;
-    font-size: 12px;
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.55);
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 13px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: none;
 }
 
 .log-wrap {
-    margin-top: 18px;
+    margin-top: 10px;
     color: var(--muted);
     font-size: 13px;
 }
 
 .log-wrap summary {
     cursor: pointer;
-    padding: 6px 0;
+    padding: 8px 0;
 }
 
 .log-box {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 12px;
+    background: #fff;
+    border: 2px solid var(--line);
+    border-radius: 16px;
     max-height: 140px;
     overflow: auto;
-    padding: 8px 10px;
+    padding: 10px 12px;
     font-size: 12px;
-    color: #c5d0dc;
+    color: #6d5a56;
     line-height: 1.45;
 }
 
@@ -222,19 +272,27 @@ button:disabled {
 .text-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin: 0 0 10px;
+    gap: 10px;
+    margin: 0 0 14px;
+}
+
+.editor-tools button {
+    flex: 1 1 22%;
+    min-height: 52px;
+    font-size: 16px;
+    box-shadow: none;
+    border: 2px solid #ead7d2;
 }
 
 .text-row input {
     flex: 1 1 160px;
-    min-height: 50px;
-    border-radius: 14px;
-    border: 1px solid var(--line);
-    background: var(--card);
-    color: #fff;
+    min-height: 56px;
+    border-radius: 18px;
+    border: 3px solid #ffd0c8;
+    background: #fff;
+    color: var(--text);
     font-size: 18px;
-    padding: 0 12px;
+    padding: 0 14px;
 }
 
 .text-row.is-disabled {
@@ -242,13 +300,13 @@ button:disabled {
 }
 
 .editor-wrap {
-    background: #080b10;
-    border-radius: 16px;
+    background: #fff;
+    border-radius: 22px;
     display: flex;
     justify-content: center;
     overflow: auto;
     touch-action: none;
-    border: 1px solid var(--line);
+    border: 3px solid #ffe1d8;
 }
 
 #editorCanvas {
@@ -257,32 +315,34 @@ button:disabled {
 }
 
 .is-active {
-    outline: 2px solid #fff;
+    outline: 3px solid #ff6b81;
 }
 
 .color-dot {
-    width: 36px;
-    min-height: 36px;
+    width: 42px;
+    min-height: 42px;
     border-radius: 50%;
     padding: 0;
+    box-shadow: none;
+    border: 3px solid #fff;
 }
 
 .sticky-actions {
-    margin-top: 12px;
+    margin-top: 16px;
 }
 
 .collage-preview {
     width: 100%;
-    border-radius: 16px;
-    background: #000;
+    border-radius: 18px;
+    background: #fff;
     display: block;
 }
 
 .save-sheet {
     position: fixed;
     inset: 0;
-    background: rgba(8, 10, 14, 0.88);
-    padding: 16px 12px;
+    background: rgba(255, 244, 239, 0.96);
+    padding: 18px 16px;
     overflow: auto;
     z-index: 20;
 }
@@ -292,12 +352,11 @@ button:disabled {
     left: 50%;
     bottom: 28px;
     transform: translateX(-50%);
-    background: rgba(26, 34, 44, 0.96);
-    border: 1px solid var(--line);
+    background: #3d2c2a;
     color: #fff;
-    padding: 10px 16px;
+    padding: 12px 18px;
     border-radius: 999px;
-    font-size: 14px;
+    font-size: 15px;
     z-index: 30;
     white-space: nowrap;
 }
