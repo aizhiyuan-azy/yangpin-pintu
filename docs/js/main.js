@@ -492,17 +492,27 @@
         };
 
         els.btnSaveCollage.disabled = true;
-        // 立刻开始下载，保留这次点击手势，避免浏览器拦截
+        // 立刻开始保存，保留这次点击手势，避免浏览器拦截分享/下载
         return window.PhotoSave.saveManyToPhone(pack)
-            .then(function () {
-                return window.PhotoStorage.savePhoto(record);
+            .then(function (result) {
+                return window.PhotoStorage.savePhoto(record).then(function () {
+                    return result;
+                });
             })
-            .then(function () {
+            .then(function (result) {
                 const singleCount = Math.max(0, pack.length - 1);
-                logLine("已开始下载拼图和 " + singleCount + " 张单图，照片仍留在本批");
-                showToast("已开始下载，照片还在，要点清空才删");
-                if (window.PhotoSave.isIOS()) {
-                    showSaveSheet(collageUrl);
+                const usedShare = result && result.method === "share";
+                if (usedShare) {
+                    logLine(
+                        "已用系统分享一次保存拼图和 " + singleCount + " 张单图，照片仍留在本批"
+                    );
+                    showToast("请在面板里选存储图像，一次能存全部");
+                } else {
+                    logLine("已开始下载拼图和 " + singleCount + " 张单图，照片仍留在本批");
+                    showToast("已开始下载，照片还在，要点清空才删");
+                    if (window.PhotoSave.isIOS()) {
+                        showSaveSheet(collageUrl);
+                    }
                 }
                 pendingCollageUrl = "";
                 pendingSavePack = [];

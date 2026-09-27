@@ -81,11 +81,34 @@
 
     /**
      * 电脑 Chrome 的分享面板经常是空的，点了等于没存。
-     * 只在苹果 Safari 上尝试分享一张图。
+     * 只在苹果 Safari 上走系统分享（可一次存多张）。
      * @returns {boolean}
      */
     function canUseShare() {
         return isIOS() && !isWeChat() && typeof navigator.share === "function";
+    }
+
+    /**
+     * 把待存清单转成系统分享要用的 File 列表。转失败返回空数组。
+     * @param {Array<{dataUrl:string,filename:string}>} list
+     * @returns {File[]}
+     */
+    function listToShareFiles(list) {
+        const files = [];
+        if (typeof File !== "function") {
+            return files;
+        }
+        for (let i = 0; i < list.length; i += 1) {
+            try {
+                const blob = dataUrlToBlob(list[i].dataUrl);
+                files.push(
+                    new File([blob], list[i].filename, { type: blob.type || "image/jpeg" })
+                );
+            } catch (err) {
+                return [];
+            }
+        }
+        return files;
     }
 
     /**
@@ -151,7 +174,10 @@
     }
 
     /**
-     * 拼图完成后一次存多张：不走系统分享（空面板会被当成成功），只下载。
+     * 拼图完成后一次存多张。
+     * 苹果 Safari：系统分享，一次带上拼图和全部单图。
+     * 电脑 / 安卓：仍一张张下载，避免空分享面板假装保存成功。
+     * 分享失败时再退回原来的逐张下载。
      * @param {Array<{dataUrl:string,filename:string}>} items
      * @returns {Promise<{method:string,count:number}>}
      */
@@ -162,9 +188,39 @@
         if (!list.length) {
             return Promise.reject(new Error("没有可保存的图片"));
         }
-        return downloadListSequentially(list).then(function () {
-            return { method: "download", count: list.length };
-        });
+
+        function downloadAll() {
+            return downloadListSequentially(list).then(function () {
+                return { method: "download", count: list.length };
+            });
+        }
+
+        try {
+            if (canUseShare() && navigator.canShare) {
+                const files = listToShareFiles(list);
+                if (files.length === list.length && navigator.canShare({ files: files })) {
+                    return navigator
+                        .share({
+                            files: files,
+                            title: "本批样品",
+                            text: "拼图和单图",
+                        })
+                        .then(function () {
+                            return { method: "share", count: files.length };
+                        })
+                        .catch(function (err) {
+                            if (err && err.name === "AbortError") {
+                                return Promise.reject(new Error("已取消保存"));
+                            }
+                            return downloadAll();
+                        });
+                }
+            }
+        } catch (err) {
+            // 分享接口异常时走原来的逐张下载
+        }
+
+        return downloadAll();
     }
 
     /**
@@ -173,7 +229,7 @@
      */
     function saveHint() {
         if (isIOS()) {
-            return "苹果手机请长按图片 → 选择「存储图像」。发微信时请勾选原图。";
+            return "苹果请在分享面板里选「存储图像」，一次能存拼图和全部单图。发微信时请勾选原图。";
         }
         return "图片会进浏览器的「下载内容」。电脑请看下载栏，手机请到文件管理或相册。发微信时请勾选原图。";
     }
