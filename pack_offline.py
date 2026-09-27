@@ -33,6 +33,7 @@ def main():
     scripts = [
         "js/config.js",
         "js/storage.js",
+        "js/zip.js",
         "js/save.js",
         "js/collage.js",
         "js/editor.js",
@@ -47,6 +48,7 @@ def main():
     html = re.sub(
         r'<script src="js/config\.js[^"]*"></script>\s*'
         r'<script src="js/storage\.js[^"]*"></script>\s*'
+        r'<script src="js/zip\.js[^"]*"></script>\s*'
         r'<script src="js/save\.js[^"]*"></script>\s*'
         r'<script src="js/collage\.js[^"]*"></script>\s*'
         r'<script src="js/editor\.js[^"]*"></script>\s*'
