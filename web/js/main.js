@@ -45,6 +45,8 @@
     /** 刚拼好、等待保存的拼图 */
     let pendingCollageUrl = "";
     let currentBatchId = window.PhotoStorage.makeBatchId();
+    /** 相册多选后排队，一张张打开标注，不改原来的单张编辑逻辑 */
+    let importQueue = [];
 
     /**
      * 弹出刚导出的图，方便长按存进相册（苹果 HTTP 下尤其需要）。
@@ -162,7 +164,52 @@
             })
             .catch(function (err) {
                 logLine("打开照片失败：" + err.message);
+                openNextQueuedFile();
             });
+    }
+
+    /**
+     * 把相册一次选出的多张放进队列。
+     * @param {FileList|File[]} fileList
+     */
+    function enqueueAlbumFiles(fileList) {
+        if (!fileList || !fileList.length) {
+            return;
+        }
+        for (let i = 0; i < fileList.length; i += 1) {
+            const item = fileList[i];
+            if (item && item.type && item.type.indexOf("image/") === 0) {
+                importQueue.push(item);
+            } else if (item && !item.type) {
+                // 少数浏览器不带 type，按图片试开
+                importQueue.push(item);
+            }
+        }
+        if (!importQueue.length) {
+            logLine("没有选到图片");
+            return;
+        }
+        logLine("已选 " + importQueue.length + " 张，将一张张标注");
+        openNextQueuedFile();
+    }
+
+    /**
+     * 取出队列下一张，沿用原来的单张标注。
+     */
+    function openNextQueuedFile() {
+        if (!importQueue.length) {
+            return;
+        }
+        if (pendingCollageUrl) {
+            logLine("请先保存当前拼图，再继续标剩下的 " + importQueue.length + " 张");
+            return;
+        }
+        const next = importQueue.shift();
+        const left = importQueue.length;
+        if (left) {
+            logLine("还剩 " + left + " 张待标注");
+        }
+        openEditorWithFile(next);
     }
 
     /**
@@ -242,19 +289,23 @@
             })
             .then(function () {
                 logLine("细节图已保存" + (sampleId ? "（" + sampleId + "）" : ""));
-                showSaveSheet(dataUrl);
                 if (editor && editor.destroy) {
                     editor.destroy();
                 }
                 editor = null;
                 editorImage = null;
                 showView("home");
+                // 队列里还有图时先不挡长按保存层，避免打断连标
+                if (!importQueue.length) {
+                    showSaveSheet(dataUrl);
+                }
                 return refreshHome();
             })
             .then(function (batchPhotos) {
                 if (batchPhotos.length >= CONFIG.BATCH_SIZE) {
                     return makeCollage(true);
                 }
+                openNextQueuedFile();
                 return null;
             })
             .catch(function (err) {
@@ -296,6 +347,9 @@
                 showView("home");
                 return refreshHome();
             })
+            .then(function () {
+                openNextQueuedFile();
+            })
             .catch(function (err) {
                 logLine("拼图保存失败：" + err.message);
             })
@@ -313,11 +367,9 @@
             }
         });
         els.fileAlbum.addEventListener("change", function () {
-            const file = els.fileAlbum.files && els.fileAlbum.files[0];
+            const picked = els.fileAlbum.files;
+            enqueueAlbumFiles(picked);
             els.fileAlbum.value = "";
-            if (file) {
-                openEditorWithFile(file);
-            }
         });
 
         els.toolText.addEventListener("click", function () {
@@ -341,7 +393,8 @@
             editor = null;
             editorImage = null;
             showView("home");
-            logLine("已取消这张，未保存");
+            logLine("已跳过这张，未保存");
+            openNextQueuedFile();
         });
         els.btnSaveEdit.addEventListener("click", saveEditedPhoto);
 
@@ -379,6 +432,7 @@
         els.btnBackHome.addEventListener("click", function () {
             pendingCollageUrl = "";
             showView("home");
+            openNextQueuedFile();
         });
         els.btnCloseSheet.addEventListener("click", function () {
             els.saveSheet.hidden = true;
