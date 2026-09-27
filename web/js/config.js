@@ -33,4 +33,7 @@ window.APP_CONFIG = {
     /** IndexedDB 库名 */
     DB_NAME: "wafer-photo-collage",
     DB_VERSION: 1,
+
+    /** 记住当前未完成批次，闪退后还能接上 */
+    BATCH_KEY: "wafer-open-batch-id",
 };

@@ -184,11 +184,81 @@
         });
     }
 
+    /**
+     * 读出上次未完成的批次号。读不到就返回空字符串。
+     * @returns {string}
+     */
+    function loadOpenBatchId() {
+        try {
+            return localStorage.getItem(CONFIG.BATCH_KEY) || "";
+        } catch (err) {
+            return "";
+        }
+    }
+
+    /**
+     * 记住当前批次，下次打开还用这一批。
+     * @param {string} batchId
+     */
+    function saveOpenBatchId(batchId) {
+        try {
+            if (batchId) {
+                localStorage.setItem(CONFIG.BATCH_KEY, batchId);
+            } else {
+                localStorage.removeItem(CONFIG.BATCH_KEY);
+            }
+        } catch (err) {
+            // 无痕模式可能写不了，忽略
+        }
+    }
+
+    /**
+     * 在已有照片里找回未拼完的批次：先看记住的号，再看最新一批没拼图的。
+     * @param {Array} photos
+     * @returns {string}
+     */
+    function resolveOpenBatchId(photos) {
+        const rows = photos || [];
+        const stored = loadOpenBatchId();
+        const hasOpen = function (batchId) {
+            const inBatch = rows.filter(function (item) {
+                return item.batchId === batchId;
+            });
+            if (!inBatch.length) {
+                return true;
+            }
+            return !inBatch.some(function (item) {
+                return item.isCollage;
+            });
+        };
+        if (stored && hasOpen(stored)) {
+            return stored;
+        }
+        let latest = "";
+        let latestAt = -1;
+        rows.forEach(function (item) {
+            if (item.isCollage) {
+                return;
+            }
+            if ((item.createdAt || 0) >= latestAt) {
+                latestAt = item.createdAt || 0;
+                latest = item.batchId;
+            }
+        });
+        if (latest && hasOpen(latest)) {
+            return latest;
+        }
+        return makeBatchId();
+    }
+
     global.PhotoStorage = {
         makeBatchId: makeBatchId,
         savePhoto: savePhoto,
         listPhotos: listPhotos,
         deletePhoto: deletePhoto,
         clearAll: clearAll,
+        loadOpenBatchId: loadOpenBatchId,
+        saveOpenBatchId: saveOpenBatchId,
+        resolveOpenBatchId: resolveOpenBatchId,
     };
 })(window);

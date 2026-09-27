@@ -119,6 +119,70 @@
     }
 
     /**
+     * 拼图完成后一次存多张：能分享就一张分享页带齐，否则连续下载。
+     * @param {Array<{dataUrl:string,filename:string}>} items
+     * @returns {Promise<{method:string,count:number}>}
+     */
+    function saveManyToPhone(items) {
+        const list = (items || []).filter(function (item) {
+            return item && item.dataUrl && item.filename;
+        });
+        if (!list.length) {
+            return Promise.reject(new Error("没有可保存的图片"));
+        }
+
+        const files = [];
+        for (let i = 0; i < list.length; i += 1) {
+            const blob = dataUrlToBlob(list[i].dataUrl);
+            if (typeof File === "function") {
+                files.push(
+                    new File([blob], list[i].filename, { type: blob.type || "image/jpeg" })
+                );
+            } else {
+                files.push(blob);
+            }
+        }
+
+        try {
+            if (
+                files[0] &&
+                files[0].name &&
+                navigator.canShare &&
+                navigator.canShare({ files: files })
+            ) {
+                return navigator
+                    .share({
+                        files: files,
+                        title: "本批样品",
+                        text: "拼图和单图",
+                    })
+                    .then(function () {
+                        return { method: "share", count: files.length };
+                    })
+                    .catch(function (err) {
+                        if (err && err.name === "AbortError") {
+                            list.forEach(function (item) {
+                                downloadBlob(dataUrlToBlob(item.dataUrl), item.filename);
+                            });
+                            return { method: "download-after-cancel", count: list.length };
+                        }
+                        list.forEach(function (item) {
+                            downloadBlob(dataUrlToBlob(item.dataUrl), item.filename);
+                        });
+                        return { method: "download", count: list.length };
+                    });
+            }
+        } catch (err) {
+            // 国内浏览器一次分享多张可能失败，改下载
+        }
+
+        list.forEach(function (item) {
+            downloadBlob(dataUrlToBlob(item.dataUrl), item.filename);
+        });
+        return Promise.resolve({ method: "download", count: list.length });
+    }
+
+    /**
      * 给苹果手机看的提示：HTTP 局域网经常不能直接写入相册。
      * @returns {string}
      */
@@ -137,6 +201,7 @@
         dataUrlToBlob: dataUrlToBlob,
         downloadBlob: downloadBlob,
         saveImageToPhone: saveImageToPhone,
+        saveManyToPhone: saveManyToPhone,
         saveHint: saveHint,
     };
 })(window);

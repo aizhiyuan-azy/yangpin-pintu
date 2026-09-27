@@ -46,7 +46,7 @@
     let editorImage = null;
     /** 刚拼好、等待保存的拼图 */
     let pendingCollageUrl = "";
-    let currentBatchId = window.PhotoStorage.makeBatchId();
+    let currentBatchId = "";
     /** 相册多选后排队，一张张打开标注，不改原来的单张编辑逻辑 */
     let importQueue = [];
     /** 当前这张是否来自相册。相册图已在手机里，完成时不再下载/分享 */
@@ -280,7 +280,16 @@
     }
 
     /**
-     * 保存标注图：缓存 + 调起手机保存/分享。
+     * 记住当前批次，闪退后再打开还能看到未拼完的图。
+     * @param {string} batchId
+     */
+    function setCurrentBatch(batchId) {
+        currentBatchId = batchId;
+        window.PhotoStorage.saveOpenBatchId(batchId);
+    }
+
+    /**
+     * 保存标注图：只进本机缓存，不立刻存相册。
      */
     function saveEditedPhoto() {
         if (!editor) {
@@ -308,29 +317,12 @@
             isCollage: false,
         };
 
-        const filename =
-            (sampleId || "sample") +
-            "_" +
-            currentBatchId +
-            "_" +
-            String(Date.now()).slice(-6) +
-            ".jpg";
-
         els.btnSaveEdit.disabled = true;
         window.PhotoStorage.savePhoto(photo)
             .then(function () {
-                if (currentFromAlbum) {
-                    return { method: "skip-album" };
-                }
-                return window.PhotoSave.saveImageToPhone(dataUrl, filename);
-            })
-            .then(function () {
-                logLine(
-                    currentFromAlbum
-                        ? "相册图已加入拼图" + (sampleId ? "（" + sampleId + "）" : "")
-                        : "细节图已保存" + (sampleId ? "（" + sampleId + "）" : "")
-                );
-                showToast(currentFromAlbum ? "已加入拼图" : "已保存");
+                window.PhotoStorage.saveOpenBatchId(currentBatchId);
+                logLine("已入缓存" + (sampleId ? "（" + sampleId + "）" : "") + "，拼图后再一起存相册");
+                showToast("已加入本批");
                 if (editor && editor.destroy) {
                     editor.destroy();
                 }
@@ -355,12 +347,12 @@
     }
 
     /**
-     * 保存拼图后，开启新批次，细节图仍留在缓存里可回看缩略图所在批次。
+     * 拼图后把拼图和本批单图一次存进相册，再开新批次。
      */
     function saveCollageAndRotateBatch() {
         if (!pendingCollageUrl) {
             logLine("没有待保存的拼图");
-            return;
+            return Promise.resolve();
         }
         const filename = "collage_" + currentBatchId + ".jpg";
         const record = {
@@ -373,15 +365,32 @@
         };
 
         els.btnSaveCollage.disabled = true;
-        window.PhotoStorage.savePhoto(record)
-            .then(function () {
-                return window.PhotoSave.saveImageToPhone(pendingCollageUrl, filename);
+        return getCurrentBatchPhotos()
+            .then(function (singles) {
+                const pack = [
+                    { dataUrl: pendingCollageUrl, filename: filename },
+                ];
+                singles.forEach(function (item, index) {
+                    const name =
+                        (item.sampleId || "sample") +
+                        "_" +
+                        currentBatchId +
+                        "_" +
+                        String(index + 1).padStart(2, "0") +
+                        ".jpg";
+                    pack.push({ dataUrl: item.dataUrl, filename: name });
+                });
+                return window.PhotoSave.saveManyToPhone(pack).then(function () {
+                    return window.PhotoStorage.savePhoto(record).then(function () {
+                        return singles.length;
+                    });
+                });
             })
-            .then(function () {
-                logLine("拼图已保存，开始下一批");
-                showToast("拼图已保存");
+            .then(function (singleCount) {
+                logLine("已保存拼图和 " + singleCount + " 张单图，开始下一批");
+                showToast("已保存拼图 + " + singleCount + " 张单图");
                 pendingCollageUrl = "";
-                currentBatchId = window.PhotoStorage.makeBatchId();
+                setCurrentBatch(window.PhotoStorage.makeBatchId());
                 showView("home");
                 return refreshHome();
             })
@@ -482,7 +491,7 @@
             }
             window.PhotoStorage.clearAll()
                 .then(function () {
-                    currentBatchId = window.PhotoStorage.makeBatchId();
+                    setCurrentBatch(window.PhotoStorage.makeBatchId());
                     logLine("缓存已清空");
                     return refreshHome();
                 })
@@ -512,13 +521,19 @@
         bindEvents();
         setToolActive("text");
         showView("home");
-        refreshHome()
-            .then(function () {
-                if (window.PhotoSave.isIOS()) {
-                    logLine("苹果请用 Safari。点拍照会调系统相机，长按图片可存相册");
+        window.PhotoStorage.listPhotos()
+            .then(function (photos) {
+                setCurrentBatch(window.PhotoStorage.resolveOpenBatchId(photos));
+                const leftover = photos.filter(function (item) {
+                    return item.batchId === currentBatchId && !item.isCollage;
+                });
+                if (leftover.length) {
+                    logLine("已恢复未完成批次，共 " + leftover.length + " 张");
+                    showToast("已恢复 " + leftover.length + " 张未拼完");
                 } else {
-                    logLine("安卓请用百度浏览器。点拍照会调系统相机，发微信请勾选原图");
+                    logLine("新批次 " + currentBatchId + "。完成只入缓存，拼图后一起存相册");
                 }
+                return refreshHome();
             })
             .catch(function (err) {
                 logLine("初始化失败：" + err.message);
