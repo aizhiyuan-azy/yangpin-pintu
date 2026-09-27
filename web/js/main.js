@@ -507,14 +507,9 @@
                         "已用系统分享一次保存拼图和 " + singleCount + " 张单图，照片仍留在本批"
                     );
                     showToast("请在面板里选存储图像，一次能存全部");
-                } else if (method === "zip" || method === "share-zip") {
-                    logLine(
-                        "已一键保存压缩包，内含拼图和 " + singleCount + " 张单图，照片仍留在本批"
-                    );
-                    showToast("已保存压缩包，解压后是拼图和全部单图");
                 } else {
                     logLine("已开始下载拼图和 " + singleCount + " 张单图，照片仍留在本批");
-                    showToast("已开始下载，照片还在，要点清空才删");
+                    showToast("已开始下载拼图和单图，照片还在，要点清空才删");
                     if (window.PhotoSave.isIOS()) {
                         showSaveSheet(collageUrl);
                     }

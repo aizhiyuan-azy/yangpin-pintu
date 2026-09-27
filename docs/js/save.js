@@ -43,36 +43,6 @@
     }
 
     /**
-     * 把 Blob 读成字节。旧浏览器没有 arrayBuffer 时用 FileReader。
-     * @param {Blob} blob
-     * @returns {Promise<Uint8Array>}
-     */
-    function blobToBytes(blob) {
-        if (!blob) {
-            return Promise.reject(new Error("空图片，无法打包"));
-        }
-        if (blob.arrayBuffer) {
-            return blob.arrayBuffer().then(function (buffer) {
-                return new Uint8Array(buffer);
-            });
-        }
-        return new Promise(function (resolve, reject) {
-            const reader = new FileReader();
-            reader.onload = function () {
-                if (!reader.result) {
-                    reject(new Error("读取照片失败"));
-                    return;
-                }
-                resolve(new Uint8Array(reader.result));
-            };
-            reader.onerror = function () {
-                reject(new Error("读取照片失败"));
-            };
-            reader.readAsArrayBuffer(blob);
-        });
-    }
-
-    /**
      * 把 dataURL 转成 Blob，避免超大图用 atob 爆内存。
      * @param {string} dataUrl
      * @returns {Blob}
@@ -219,115 +189,20 @@
     }
 
     /**
-     * 压缩包文件名：能认出批次号就带上，方便对账。
-     * @param {Array<{filename:string}>} list
-     * @returns {string}
-     */
-    function guessZipName(list) {
-        const first = (list[0] && list[0].filename) || "";
-        const matched = first.match(/collage_(.+)\.jpe?g$/i);
-        if (matched) {
-            return "样品_" + matched[1] + ".zip";
-        }
-        return "样品照片.zip";
-    }
-
-    /**
-     * 把清单打成一个 ZIP。失败把原因抛出去。
-     * @param {Array<{dataUrl:string,filename:string}>} list
-     * @returns {Promise<Blob>}
-     */
-    function buildZipFromList(list) {
-        if (!window.PhotoZip || !window.PhotoZip.buildStoreZip) {
-            return Promise.reject(new Error("压缩模块未加载"));
-        }
-        const tasks = list.map(function (item) {
-            const blob = dataUrlToBlob(item.dataUrl);
-            return blobToBytes(blob).then(function (bytes) {
-                return {
-                    name: window.PhotoZip.safeEntryName(item.filename),
-                    bytes: bytes,
-                };
-            });
-        });
-        return Promise.all(tasks).then(function (entries) {
-            return window.PhotoZip.buildStoreZip(entries);
-        });
-    }
-
-    /**
-     * 下一个压缩包，一次带上拼图和全部单图。
+     * 点一次后连续下载多张 jpg。电脑走这条，不打包。
      * @param {Array<{dataUrl:string,filename:string}>} list
      * @returns {Promise<{method:string,count:number}>}
      */
-    function downloadZipOnce(list) {
-        return buildZipFromList(list).then(function (zipBlob) {
-            downloadBlob(zipBlob, guessZipName(list));
-            return { method: "zip", count: list.length };
+    function downloadAllJpgs(list) {
+        return downloadListSequentially(list).then(function () {
+            return { method: "download", count: list.length };
         });
     }
 
     /**
-     * 分享一个压缩包（有的安卓不能一次分享 9 张图，但能分享一个文件）。
-     * @param {Array<{dataUrl:string,filename:string}>} list
-     * @returns {Promise<{method:string,count:number}>}
-     */
-    function shareZipOnce(list) {
-        return buildZipFromList(list).then(function (zipBlob) {
-            if (!canUseShare() || typeof File !== "function" || !navigator.canShare) {
-                throw new Error("不能分享压缩包");
-            }
-            const file = new File([zipBlob], guessZipName(list), {
-                type: "application/zip",
-            });
-            if (!navigator.canShare({ files: [file] })) {
-                throw new Error("不能分享压缩包");
-            }
-            return navigator
-                .share({
-                    files: [file],
-                    title: "本批样品",
-                    text: "拼图和单图压缩包",
-                })
-                .then(function () {
-                    return { method: "share-zip", count: list.length };
-                });
-        });
-    }
-
-    /**
-     * 不能一次分享多张图时：先试分享压缩包，再试下载压缩包，最后才逐张下。
-     * @param {Array<{dataUrl:string,filename:string}>} list
-     * @returns {Promise<{method:string,count:number}>}
-     */
-    function saveManyAsOneFile(list) {
-        function downloadAll() {
-            return downloadListSequentially(list).then(function () {
-                return { method: "download", count: list.length };
-            });
-        }
-
-        if (canUseShare()) {
-            return shareZipOnce(list).catch(function (err) {
-                if (err && err.name === "AbortError") {
-                    return Promise.reject(new Error("已取消保存"));
-                }
-                return downloadZipOnce(list).catch(function () {
-                    return downloadAll();
-                });
-            });
-        }
-
-        return downloadZipOnce(list).catch(function () {
-            return downloadAll();
-        });
-    }
-
-    /**
-     * 拼图完成后一次存多张。
-     * 苹果 / 安卓：先系统分享全部图片（原来的苹果逻辑还在）。
-     * 不能一次分享多张时：一个压缩包，仍然只点一次。
-     * 压缩也失败时，才退回原来的逐张下载。
+     * 拼图完成后一次存多张，不再打压缩包。
+     * 苹果 / 安卓夸克：系统分享，一次带上拼图和全部单图。
+     * 电脑或不支持分享：点一次后连续下载多张 jpg。
      * @param {Array<{dataUrl:string,filename:string}>} items
      * @returns {Promise<{method:string,count:number}>}
      */
@@ -356,15 +231,15 @@
                             if (err && err.name === "AbortError") {
                                 return Promise.reject(new Error("已取消保存"));
                             }
-                            return saveManyAsOneFile(list);
+                            return downloadAllJpgs(list);
                         });
                 }
             }
         } catch (err) {
-            // 分享接口异常时改走一键压缩包
+            // 分享接口异常时走原来的连续下载
         }
 
-        return saveManyAsOneFile(list);
+        return downloadAllJpgs(list);
     }
 
     /**
@@ -376,9 +251,9 @@
             return "苹果请在分享面板里选「存储图像」，一次能存拼图和全部单图。发微信时请勾选原图。";
         }
         if (isAndroid()) {
-            return "安卓请在分享面板一次保存全部；不支持时会下一个压缩包。发微信时请勾选原图。";
+            return "安卓请用夸克，在分享面板一次保存全部。发微信时请勾选原图。";
         }
-        return "会下一个压缩包，解压后是拼图和全部单图。发微信时请勾选原图。";
+        return "会连续下载拼图和全部单图到下载栏。发微信时请勾选原图。";
     }
 
     global.PhotoSave = {
