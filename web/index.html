@@ -6,11 +6,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="样品拼图">
-    <meta name="theme-color" content="#fff4ef">
+    <meta name="theme-color" content="#f4f1ea">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icon.png">
     <title>样品拍照拼图</title>
-    <link rel="stylesheet" href="app.css?v=cute3">
+    <link rel="stylesheet" href="app.css?v=muji4">
 </head>
 <body>
     <div id="wechatBar" class="banner banner-warn" hidden>
@@ -24,7 +24,6 @@
     </div>
 
     <header class="top">
-        <p class="eyebrow">今天也要拍清楚呀</p>
         <h1>样品拼图</h1>
         <p id="statusText" class="status">本批 0 / 9</p>
         <div id="progressBar" class="progress"><i id="progressFill"></i></div>
@@ -33,13 +32,11 @@
     <section id="homeView">
         <div class="hero-btns">
             <label class="btn-main file-btn">
-                <span class="btn-emoji">📷</span>
-                <span>拍照</span>
+                拍照
                 <input id="fileShot" type="file" accept="image/*" capture="environment">
             </label>
             <label class="file-btn file-btn-sub">
-                <span class="btn-emoji">🖼️</span>
-                <span>相册多选</span>
+                相册多选
                 <input id="fileAlbum" type="file" accept="image/*" multiple>
             </label>
         </div>

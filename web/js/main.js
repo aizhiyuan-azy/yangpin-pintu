@@ -49,6 +49,8 @@
     let currentBatchId = window.PhotoStorage.makeBatchId();
     /** 相册多选后排队，一张张打开标注，不改原来的单张编辑逻辑 */
     let importQueue = [];
+    /** 当前这张是否来自相册。相册图已在手机里，完成时不再下载/分享 */
+    let currentFromAlbum = false;
 
     /**
      * 弹出刚导出的图，方便长按存进相册（苹果 HTTP 下尤其需要）。
@@ -159,8 +161,10 @@
     /**
      * 打开标注页。拍照和相册导入走同一条路，保证画质处理一致。
      * @param {File} file
+     * @param {boolean} [fromAlbum]
      */
-    function openEditorWithFile(file) {
+    function openEditorWithFile(file, fromAlbum) {
+        currentFromAlbum = !!fromAlbum;
         window.PhotoEditor.loadFileAsImage(file)
             .then(function (image) {
                 if (editor && editor.destroy) {
@@ -233,7 +237,7 @@
         if (left) {
             logLine("还剩 " + left + " 张待标注");
         }
-        openEditorWithFile(next);
+        openEditorWithFile(next, true);
     }
 
     /**
@@ -315,11 +319,18 @@
         els.btnSaveEdit.disabled = true;
         window.PhotoStorage.savePhoto(photo)
             .then(function () {
+                if (currentFromAlbum) {
+                    return { method: "skip-album" };
+                }
                 return window.PhotoSave.saveImageToPhone(dataUrl, filename);
             })
             .then(function () {
-                logLine("细节图已保存" + (sampleId ? "（" + sampleId + "）" : ""));
-                showToast("已保存" + (sampleId ? " " + sampleId : ""));
+                logLine(
+                    currentFromAlbum
+                        ? "相册图已加入拼图" + (sampleId ? "（" + sampleId + "）" : "")
+                        : "细节图已保存" + (sampleId ? "（" + sampleId + "）" : "")
+                );
+                showToast(currentFromAlbum ? "已加入拼图" : "已保存");
                 if (editor && editor.destroy) {
                     editor.destroy();
                 }
@@ -390,7 +401,7 @@
             const file = els.fileShot.files && els.fileShot.files[0];
             els.fileShot.value = "";
             if (file) {
-                openEditorWithFile(file);
+                openEditorWithFile(file, false);
             }
         });
         els.fileAlbum.addEventListener("change", function () {

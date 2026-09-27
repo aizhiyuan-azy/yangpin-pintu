@@ -41,10 +41,12 @@ def main():
 
     html = html.replace('<link rel="manifest" href="manifest.webmanifest">', "")
     html = html.replace('<link rel="apple-touch-icon" href="icon.png">', "")
+    html = html.replace('<link rel="stylesheet" href="app.css?v=muji4">', "")
     html = html.replace(
         '<link rel="stylesheet" href="app.css">',
-        "<style>\n" + css + "\n</style>",
+        "",
     )
+    html = html.replace("</head>", "<style>\n" + css + "\n</style>\n</head>")
     html = html.replace(
         '<script src="js/config.js"></script>\n    <script src="js/storage.js"></script>\n    <script src="js/save.js"></script>\n    <script src="js/collage.js"></script>\n    <script src="js/editor.js"></script>\n    <script src="js/main.js"></script>',
         "<script>\n" + "\n".join(js_parts) + "\n</script>",

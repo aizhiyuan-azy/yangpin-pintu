@@ -1,13 +1,12 @@
-/* 浅色可爱风：大按钮、拉开间距，不铺满黑底 */
+/* 中性风：米灰底、鼠尾草绿，大按钮拉开间距 */
 :root {
-    --bg: #fff4ef;
+    --bg: #f4f1ea;
     --card: #ffffff;
-    --text: #3d2c2a;
-    --muted: #8a706b;
-    --accent: #ff6b81;
-    --accent-2: #ff9f43;
-    --ok: #2ec4a3;
-    --line: #f0d8d2;
+    --text: #3e3a36;
+    --muted: #7a746c;
+    --accent: #6b8f71;
+    --ok: #5d7f7a;
+    --line: #e4dfd6;
 }
 
 * {
@@ -18,7 +17,7 @@ html,
 body {
     margin: 0;
     padding: 0;
-    background-color: #fff4ef;
+    background-color: #f4f1ea;
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
         "Microsoft YaHei", "Noto Sans SC", sans-serif;
@@ -30,31 +29,6 @@ body {
     min-height: 100vh;
     padding: 20px 18px 36px;
     position: relative;
-}
-
-body::before,
-body::after {
-    content: "";
-    position: fixed;
-    z-index: 0;
-    pointer-events: none;
-    border-radius: 50%;
-}
-
-body::before {
-    width: 220px;
-    height: 220px;
-    left: -70px;
-    top: -50px;
-    background: #ffd6de;
-}
-
-body::after {
-    width: 180px;
-    height: 180px;
-    right: -50px;
-    bottom: 80px;
-    background: #d8f3ee;
 }
 
 .banner,
@@ -75,29 +49,23 @@ section,
 }
 
 .banner-warn {
-    background: #ffe8e4;
-    color: #b5453a;
+    background: #efe8dc;
+    color: #6a5048;
 }
 
 .banner-info {
-    background: #e7f3ff;
-    color: #2a628f;
+    background: #e6eef0;
+    color: #4d6468;
 }
 
 .top {
     margin: 8px 0 22px;
 }
 
-.eyebrow {
-    margin: 0 0 6px;
-    color: var(--accent);
-    font-size: 13px;
-}
-
 h1 {
-    font-size: 30px;
+    font-size: 28px;
     margin: 0 0 8px;
-    font-weight: 800;
+    font-weight: 600;
 }
 
 .status,
@@ -112,7 +80,7 @@ h1 {
     margin-top: 14px;
     height: 10px;
     border-radius: 99px;
-    background: #ffe1d8;
+    background: #e4dfd6;
     overflow: hidden;
 }
 
@@ -121,7 +89,7 @@ h1 {
     height: 100%;
     width: 0;
     border-radius: 99px;
-    background: #ff6b81;
+    background: #6b8f71;
 }
 
 .hero-btns {
@@ -145,9 +113,9 @@ button {
     gap: 8px;
     min-height: 72px;
     border: 0;
-    border-radius: 22px;
+    border-radius: 12px;
     font-size: 20px;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text);
     background: var(--card);
     touch-action: manipulation;
@@ -168,38 +136,30 @@ button {
     font-size: 80px;
 }
 
-.btn-emoji {
-    font-size: 22px;
-}
-
 button:disabled {
     opacity: 0.4;
 }
 
 .btn-main {
     color: #fff;
-    background: #ff6b81;
-    box-shadow: 0 10px 0 #e24e64;
+    background: #6b8f71;
 }
 
 .file-btn-sub {
     background: #fff;
-    border: 3px solid #ffd0c8;
-    box-shadow: 0 10px 0 #f3c4bb;
+    border: 1px solid #d7d1c7;
 }
 
 .btn-ok {
     color: #fff;
-    background: #2ec4a3;
-    box-shadow: 0 8px 0 #1fa888;
+    background: #5d7f7a;
     flex: 1;
 }
 
 .btn-ghost {
     flex: 1;
     background: #fff;
-    border: 3px solid #ead7d2;
-    box-shadow: 0 8px 0 #e2cdc7;
+    border: 1px solid #d7d1c7;
 }
 
 .thumb-list {
@@ -211,9 +171,9 @@ button:disabled {
 .thumb-card {
     position: relative;
     background: #fff;
-    border-radius: 18px;
+    border-radius: 12px;
     overflow: hidden;
-    border: 3px solid #ffe1d8;
+    border: 1px solid #e4dfd6;
 }
 
 .thumb-card img {
@@ -281,14 +241,14 @@ button:disabled {
     min-height: 52px;
     font-size: 16px;
     box-shadow: none;
-    border: 2px solid #ead7d2;
+    border: 1px solid #d7d1c7;
 }
 
 .text-row input {
     flex: 1 1 160px;
     min-height: 56px;
-    border-radius: 18px;
-    border: 3px solid #ffd0c8;
+    border-radius: 10px;
+    border: 1px solid #d7d1c7;
     background: #fff;
     color: var(--text);
     font-size: 18px;
@@ -301,12 +261,12 @@ button:disabled {
 
 .editor-wrap {
     background: #fff;
-    border-radius: 22px;
+    border-radius: 12px;
     display: flex;
     justify-content: center;
     overflow: auto;
     touch-action: none;
-    border: 3px solid #ffe1d8;
+    border: 1px solid #e4dfd6;
 }
 
 #editorCanvas {
@@ -315,7 +275,7 @@ button:disabled {
 }
 
 .is-active {
-    outline: 3px solid #ff6b81;
+    outline: 2px solid #6b8f71;
 }
 
 .color-dot {
@@ -341,7 +301,7 @@ button:disabled {
 .save-sheet {
     position: fixed;
     inset: 0;
-    background: rgba(255, 244, 239, 0.96);
+    background: rgba(244, 241, 234, 0.96);
     padding: 18px 16px;
     overflow: auto;
     z-index: 20;
@@ -352,7 +312,7 @@ button:disabled {
     left: 50%;
     bottom: 28px;
     transform: translateX(-50%);
-    background: #3d2c2a;
+    background: #3e3a36;
     color: #fff;
     padding: 12px 18px;
     border-radius: 999px;

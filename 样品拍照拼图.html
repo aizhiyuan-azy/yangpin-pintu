@@ -6,11 +6,340 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="样品拼图">
-    <meta name="theme-color" content="#fff4ef">
+    <meta name="theme-color" content="#f4f1ea">
     
     
     <title>样品拍照拼图</title>
-    <link rel="stylesheet" href="app.css?v=cute3">
+    
+<style>
+/* 中性风：米灰底、鼠尾草绿，大按钮拉开间距 */
+:root {
+    --bg: #f4f1ea;
+    --card: #ffffff;
+    --text: #3e3a36;
+    --muted: #7a746c;
+    --accent: #6b8f71;
+    --ok: #5d7f7a;
+    --line: #e4dfd6;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #f4f1ea;
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+        "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+
+body {
+    max-width: 720px;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: 20px 18px 36px;
+    position: relative;
+}
+
+.banner,
+.top,
+section,
+.log-wrap,
+.save-sheet {
+    position: relative;
+    z-index: 1;
+}
+
+.banner {
+    padding: 12px 14px;
+    border-radius: 16px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.banner-warn {
+    background: #efe8dc;
+    color: #6a5048;
+}
+
+.banner-info {
+    background: #e6eef0;
+    color: #4d6468;
+}
+
+.top {
+    margin: 8px 0 22px;
+}
+
+h1 {
+    font-size: 28px;
+    margin: 0 0 8px;
+    font-weight: 600;
+}
+
+.status,
+.hint {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.progress {
+    margin-top: 14px;
+    height: 10px;
+    border-radius: 99px;
+    background: #e4dfd6;
+    overflow: hidden;
+}
+
+.progress i {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: 99px;
+    background: #6b8f71;
+}
+
+.hero-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 0 0 22px;
+}
+
+.btn-row {
+    display: flex;
+    gap: 14px;
+    margin: 0 0 22px;
+}
+
+.file-btn,
+button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 72px;
+    border: 0;
+    border-radius: 12px;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--card);
+    touch-action: manipulation;
+}
+
+.file-btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.file-btn input {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.01;
+    font-size: 80px;
+}
+
+button:disabled {
+    opacity: 0.4;
+}
+
+.btn-main {
+    color: #fff;
+    background: #6b8f71;
+}
+
+.file-btn-sub {
+    background: #fff;
+    border: 1px solid #d7d1c7;
+}
+
+.btn-ok {
+    color: #fff;
+    background: #5d7f7a;
+    flex: 1;
+}
+
+.btn-ghost {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #d7d1c7;
+}
+
+.thumb-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.thumb-card {
+    position: relative;
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e4dfd6;
+}
+
+.thumb-card img {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    display: block;
+}
+
+.thumb-cap {
+    font-size: 12px;
+    padding: 8px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.thumb-del {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 13px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: none;
+}
+
+.log-wrap {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.log-wrap summary {
+    cursor: pointer;
+    padding: 8px 0;
+}
+
+.log-box {
+    background: #fff;
+    border: 2px solid var(--line);
+    border-radius: 16px;
+    max-height: 140px;
+    overflow: auto;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: #6d5a56;
+    line-height: 1.45;
+}
+
+.editor-tools,
+.color-row,
+.text-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 14px;
+}
+
+.editor-tools button {
+    flex: 1 1 22%;
+    min-height: 52px;
+    font-size: 16px;
+    box-shadow: none;
+    border: 1px solid #d7d1c7;
+}
+
+.text-row input {
+    flex: 1 1 160px;
+    min-height: 56px;
+    border-radius: 10px;
+    border: 1px solid #d7d1c7;
+    background: #fff;
+    color: var(--text);
+    font-size: 18px;
+    padding: 0 14px;
+}
+
+.text-row.is-disabled {
+    opacity: 0.45;
+}
+
+.editor-wrap {
+    background: #fff;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    overflow: auto;
+    touch-action: none;
+    border: 1px solid #e4dfd6;
+}
+
+#editorCanvas {
+    display: block;
+    max-width: 100%;
+}
+
+.is-active {
+    outline: 2px solid #6b8f71;
+}
+
+.color-dot {
+    width: 42px;
+    min-height: 42px;
+    border-radius: 50%;
+    padding: 0;
+    box-shadow: none;
+    border: 3px solid #fff;
+}
+
+.sticky-actions {
+    margin-top: 16px;
+}
+
+.collage-preview {
+    width: 100%;
+    border-radius: 18px;
+    background: #fff;
+    display: block;
+}
+
+.save-sheet {
+    position: fixed;
+    inset: 0;
+    background: rgba(244, 241, 234, 0.96);
+    padding: 18px 16px;
+    overflow: auto;
+    z-index: 20;
+}
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%);
+    background: #3e3a36;
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: 999px;
+    font-size: 15px;
+    z-index: 30;
+    white-space: nowrap;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+</style>
 </head>
 <body>
     <div id="wechatBar" class="banner banner-warn" hidden>
@@ -24,7 +353,6 @@
     </div>
 
     <header class="top">
-        <p class="eyebrow">今天也要拍清楚呀</p>
         <h1>样品拼图</h1>
         <p id="statusText" class="status">本批 0 / 9</p>
         <div id="progressBar" class="progress"><i id="progressFill"></i></div>
@@ -33,13 +361,11 @@
     <section id="homeView">
         <div class="hero-btns">
             <label class="btn-main file-btn">
-                <span class="btn-emoji">📷</span>
-                <span>拍照</span>
+                拍照
                 <input id="fileShot" type="file" accept="image/*" capture="environment">
             </label>
             <label class="file-btn file-btn-sub">
-                <span class="btn-emoji">🖼️</span>
-                <span>相册多选</span>
+                相册多选
                 <input id="fileAlbum" type="file" accept="image/*" multiple>
             </label>
         </div>
@@ -1150,6 +1476,8 @@ window.APP_CONFIG = {
     let currentBatchId = window.PhotoStorage.makeBatchId();
     /** 相册多选后排队，一张张打开标注，不改原来的单张编辑逻辑 */
     let importQueue = [];
+    /** 当前这张是否来自相册。相册图已在手机里，完成时不再下载/分享 */
+    let currentFromAlbum = false;
 
     /**
      * 弹出刚导出的图，方便长按存进相册（苹果 HTTP 下尤其需要）。
@@ -1260,8 +1588,10 @@ window.APP_CONFIG = {
     /**
      * 打开标注页。拍照和相册导入走同一条路，保证画质处理一致。
      * @param {File} file
+     * @param {boolean} [fromAlbum]
      */
-    function openEditorWithFile(file) {
+    function openEditorWithFile(file, fromAlbum) {
+        currentFromAlbum = !!fromAlbum;
         window.PhotoEditor.loadFileAsImage(file)
             .then(function (image) {
                 if (editor && editor.destroy) {
@@ -1334,7 +1664,7 @@ window.APP_CONFIG = {
         if (left) {
             logLine("还剩 " + left + " 张待标注");
         }
-        openEditorWithFile(next);
+        openEditorWithFile(next, true);
     }
 
     /**
@@ -1416,11 +1746,18 @@ window.APP_CONFIG = {
         els.btnSaveEdit.disabled = true;
         window.PhotoStorage.savePhoto(photo)
             .then(function () {
+                if (currentFromAlbum) {
+                    return { method: "skip-album" };
+                }
                 return window.PhotoSave.saveImageToPhone(dataUrl, filename);
             })
             .then(function () {
-                logLine("细节图已保存" + (sampleId ? "（" + sampleId + "）" : ""));
-                showToast("已保存" + (sampleId ? " " + sampleId : ""));
+                logLine(
+                    currentFromAlbum
+                        ? "相册图已加入拼图" + (sampleId ? "（" + sampleId + "）" : "")
+                        : "细节图已保存" + (sampleId ? "（" + sampleId + "）" : "")
+                );
+                showToast(currentFromAlbum ? "已加入拼图" : "已保存");
                 if (editor && editor.destroy) {
                     editor.destroy();
                 }
@@ -1491,7 +1828,7 @@ window.APP_CONFIG = {
             const file = els.fileShot.files && els.fileShot.files[0];
             els.fileShot.value = "";
             if (file) {
-                openEditorWithFile(file);
+                openEditorWithFile(file, false);
             }
         });
         els.fileAlbum.addEventListener("change", function () {
