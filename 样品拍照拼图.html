@@ -1,0 +1,1764 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="样品拼图">
+    <meta name="theme-color" content="#121212">
+    
+    
+    <title>样品拍照拼图</title>
+    <style>
+/* 车间手机页：大按钮、深色底、少装饰，戴手套也能点到 */
+:root {
+    --bg: #121212;
+    --card: #1d1d1d;
+    --text: #f3f3f3;
+    --muted: #b5b5b5;
+    --red: #e53935;
+    --line: #333;
+    --ok: #2e7d32;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+body {
+    max-width: 720px;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: 12px 12px 24px;
+}
+
+.ios-bar {
+    background: #1e3a5f;
+    color: #fff;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.wechat-bar {
+    background: #7a1f1f;
+    color: #fff;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+h1 {
+    font-size: 20px;
+    margin: 8px 0 4px;
+}
+
+.hint,
+.status {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 10px;
+}
+
+/* 输入框铺满按钮。百度/UC 不吃「代码代点」，必须手指直接点到 input */
+.file-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.file-btn input {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    /* 苹果 Safari 对 opacity:0 的文件框有时点不到，留一点透明度 */
+    opacity: 0.01;
+    font-size: 80px;
+}
+
+.file-btn-sub {
+    background: #2b2b2b;
+    flex: 1 1 120px;
+}
+
+.btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+button {
+    border: 0;
+    border-radius: 10px;
+    min-height: 48px;
+    padding: 0 14px;
+    font-size: 16px;
+    color: #fff;
+    background: #2b2b2b;
+    touch-action: manipulation;
+}
+
+button:disabled {
+    opacity: 0.4;
+}
+
+.btn-main {
+    background: var(--red);
+    flex: 1 1 160px;
+    font-weight: 700;
+}
+
+.btn-ok {
+    background: var(--ok);
+    flex: 1 1 140px;
+}
+
+.thumb-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.thumb-card {
+    position: relative;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.thumb-card img {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    display: block;
+}
+
+.thumb-cap {
+    font-size: 12px;
+    padding: 4px 6px;
+    color: #eee;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.thumb-del {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-height: 28px;
+    padding: 0 8px;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.65);
+}
+
+.log-box {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    min-height: 88px;
+    max-height: 160px;
+    overflow: auto;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #cfcfcf;
+    line-height: 1.45;
+}
+
+.editor-tools,
+.color-row,
+.text-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0;
+}
+
+.text-row input {
+    flex: 1 1 160px;
+    min-height: 48px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: #000;
+    color: #fff;
+    font-size: 18px;
+    padding: 0 10px;
+}
+
+.text-row.is-disabled {
+    opacity: 0.45;
+}
+
+.editor-wrap {
+    background: #000;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    overflow: auto;
+    touch-action: none;
+}
+
+#editorCanvas {
+    display: block;
+    max-width: 100%;
+}
+
+.is-active {
+    outline: 2px solid #fff;
+}
+
+.color-dot {
+    width: 42px;
+    min-height: 42px;
+    border-radius: 50%;
+    padding: 0;
+}
+
+.collage-preview {
+    width: 100%;
+    border-radius: 8px;
+    background: #000;
+    display: block;
+}
+
+.save-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: 0;
+    background: rgba(0, 0, 0, 0.88);
+    padding: 16px 12px;
+    overflow: auto;
+    z-index: 20;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+</style>
+</head>
+<body>
+    <div id="wechatBar" class="wechat-bar" hidden>
+        当前在微信里打开，照片会被压糊。苹果请点右上角「···」→「在 Safari 中打开」。安卓请用百度浏览器打开。
+    </div>
+    <div id="chromeBar" class="wechat-bar" hidden>
+        请改用百度浏览器打开（夸克、UC、手机自带浏览器也可以）。不要用 Chrome。
+    </div>
+    <div id="iosBar" class="ios-bar" hidden>
+        苹果请用 Safari 打开本页（不要用微信）。点底部分享 →「添加到主屏幕」后，以后当应用用。
+    </div>
+
+    <h1>样品拍照拼图</h1>
+    <p class="hint">苹果用 Safari，安卓用百度。点「拍照」调系统相机，写完型号再保存。满 9 张自动拼。</p>
+    <p id="statusText" class="status">本批 0 / 9 张</p>
+
+    <section id="homeView">
+        <div class="btn-row">
+            <label class="btn-main file-btn">
+                拍照
+                <input id="fileShot" type="file" accept="image/*" capture="environment">
+            </label>
+            <label class="file-btn file-btn-sub">
+                从相册导入
+                <input id="fileAlbum" type="file" accept="image/*">
+            </label>
+        </div>
+        <div class="btn-row">
+            <button id="btnEarlyCollage" type="button" disabled>提前拼图</button>
+            <button id="btnClear" type="button">清空缓存</button>
+        </div>
+        <div id="thumbList" class="thumb-list"></div>
+    </section>
+
+    <section id="editorView" hidden>
+        <div class="text-row">
+            <input id="textInput" type="text" inputmode="text" placeholder="先写型号，例如 20X-E1，再点照片贴上">
+        </div>
+        <div class="editor-tools">
+            <button id="toolText" data-tool="text" type="button">文字</button>
+            <button id="toolArrow" data-tool="arrow" type="button">箭头</button>
+            <button id="toolCircle" data-tool="circle" type="button">圆圈</button>
+            <button id="btnUndo" type="button">撤销</button>
+        </div>
+        <div id="colorRow" class="color-row">
+            <button class="color-dot is-active" data-color="#e53935" style="background:#e53935" type="button"></button>
+            <button class="color-dot" data-color="#ffffff" style="background:#ffffff" type="button"></button>
+            <button class="color-dot" data-color="#f9a825" style="background:#f9a825" type="button"></button>
+        </div>
+        <div class="editor-wrap">
+            <canvas id="editorCanvas"></canvas>
+        </div>
+        <div class="btn-row">
+            <button id="btnSaveEdit" class="btn-ok" type="button">保存到相册并加入拼图</button>
+            <button id="btnCancelEdit" type="button">取消</button>
+        </div>
+    </section>
+
+    <section id="collageView" hidden>
+        <p class="hint">核对型号和缺陷圈是否还清楚，再保存。发微信请勾选「原图」。</p>
+        <img id="collagePreview" class="collage-preview" alt="拼图预览">
+        <div class="btn-row">
+            <button id="btnSaveCollage" class="btn-ok" type="button">保存拼图到相册</button>
+            <button id="btnBackHome" type="button">返回改图</button>
+        </div>
+    </section>
+
+    <div id="saveSheet" class="save-sheet" hidden>
+        <p id="saveSheetHint" class="hint">苹果手机请长按下面这张图 → 存储图像。安卓一般会直接下载。</p>
+        <img id="saveSheetImg" class="collage-preview" alt="待保存图片">
+        <div class="btn-row">
+            <button id="btnCloseSheet" class="btn-ok" type="button">已保存，关闭</button>
+        </div>
+    </div>
+
+    <div id="logBox" class="log-box"></div>
+
+    <script>
+/**
+ * 车间拍照拼图：全局配置
+ * 改这里即可调整画质、批次、颜色，不必翻业务代码。
+ */
+window.APP_CONFIG = {
+    /** 满几张自动拼一张 3×3 */
+    BATCH_SIZE: 9,
+
+    /** 单张导出 JPEG 质量，0~1。0.98 接近原相机，再高文件很大、肉眼差不多 */
+    JPEG_QUALITY: 0.98,
+
+    /**
+     * 拼图每格最长边上限。优先用原图像素，内存不够再自动降。
+     * 细节图始终按相机原分辨率保存，不受这个值影响。
+     */
+    COLLAGE_CELL_MAX: 4096,
+
+    /** 拼图格子缝隙（像素） */
+    COLLAGE_GAP: 16,
+
+    /** 拼图空白格 / 背景色 */
+    COLLAGE_BG: "#111111",
+
+    /** 标注默认颜色（和现场红笔圈缺陷一致） */
+    DEFAULT_COLOR: "#e53935",
+
+    /** 文字相对原图宽度的比例 */
+    TEXT_SIZE_RATIO: 0.048,
+
+    /** 线条相对原图宽度的比例 */
+    LINE_WIDTH_RATIO: 0.0045,
+
+    /** IndexedDB 库名 */
+    DB_NAME: "wafer-photo-collage",
+    DB_VERSION: 1,
+};
+
+/**
+ * 用 IndexedDB 保存本批次标注图，刷新页面也不会丢。
+ * 只存已经「完成标注」的图，不存拍摄中的临时数据。
+ */
+(function (global) {
+    const CONFIG = global.APP_CONFIG;
+    const STORE = "photos";
+    /** 离线单文件（file://）时 IndexedDB 可能不可用，用内存顶上 */
+    const memoryRows = [];
+    let useMemory = false;
+
+    /**
+     * 打开（或创建）本地数据库。
+     * @returns {Promise<IDBDatabase>}
+     */
+    function openDb() {
+        return new Promise(function (resolve, reject) {
+            if (useMemory || !window.indexedDB) {
+                reject(new Error("改用内存缓存"));
+                return;
+            }
+            const request = indexedDB.open(CONFIG.DB_NAME, CONFIG.DB_VERSION);
+            request.onerror = function () {
+                reject(request.error || new Error("打开本地缓存失败"));
+            };
+            request.onsuccess = function () {
+                resolve(request.result);
+            };
+            request.onupgradeneeded = function (event) {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains(STORE)) {
+                    const store = db.createObjectStore(STORE, { keyPath: "id" });
+                    store.createIndex("createdAt", "createdAt", { unique: false });
+                    store.createIndex("batchId", "batchId", { unique: false });
+                }
+            };
+        });
+    }
+
+    /**
+     * 生成当前批次编号（按日期，方便对账）。
+     * @returns {string}
+     */
+    function makeBatchId() {
+        const now = new Date();
+        const pad = function (n) {
+            return String(n).padStart(2, "0");
+        };
+        return (
+            now.getFullYear() +
+            pad(now.getMonth() + 1) +
+            pad(now.getDate()) +
+            "-" +
+            pad(now.getHours()) +
+            pad(now.getMinutes())
+        );
+    }
+
+    /**
+     * 写入一张已标注照片。
+     * @param {Object} photo
+     * @returns {Promise<void>}
+     */
+    function saveToMemory(photo) {
+        useMemory = true;
+        let found = false;
+        for (let i = 0; i < memoryRows.length; i += 1) {
+            if (memoryRows[i].id === photo.id) {
+                memoryRows[i] = photo;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            memoryRows.push(photo);
+        }
+        return Promise.resolve();
+    }
+
+    function savePhoto(photo) {
+        return openDb().then(function (db) {
+            return new Promise(function (resolve, reject) {
+                const tx = db.transaction(STORE, "readwrite");
+                tx.oncomplete = function () {
+                    resolve();
+                };
+                tx.onerror = function () {
+                    reject(tx.error || new Error("保存照片失败"));
+                };
+                tx.objectStore(STORE).put(photo);
+            });
+        }).catch(function () {
+            return saveToMemory(photo);
+        });
+    }
+
+    /**
+     * 读取全部照片，按时间从旧到新。
+     * @returns {Promise<Array>}
+     */
+    function listPhotos() {
+        if (useMemory) {
+            const rows = memoryRows.slice();
+            rows.sort(function (a, b) {
+                return (a.createdAt || 0) - (b.createdAt || 0);
+            });
+            return Promise.resolve(rows);
+        }
+        return openDb().then(function (db) {
+            return new Promise(function (resolve, reject) {
+                const tx = db.transaction(STORE, "readonly");
+                const request = tx.objectStore(STORE).getAll();
+                request.onsuccess = function () {
+                    const rows = request.result || [];
+                    rows.sort(function (a, b) {
+                        return (a.createdAt || 0) - (b.createdAt || 0);
+                    });
+                    resolve(rows);
+                };
+                request.onerror = function () {
+                    reject(request.error || new Error("读取照片失败"));
+                };
+            });
+        }).catch(function () {
+            useMemory = true;
+            return Promise.resolve(memoryRows.slice());
+        });
+    }
+
+    /**
+     * 按 id 删除一张。
+     * @param {string} photoId
+     * @returns {Promise<void>}
+     */
+    function deletePhoto(photoId) {
+        if (useMemory) {
+            for (let i = memoryRows.length - 1; i >= 0; i -= 1) {
+                if (memoryRows[i].id === photoId) {
+                    memoryRows.splice(i, 1);
+                }
+            }
+            return Promise.resolve();
+        }
+        return openDb().then(function (db) {
+            return new Promise(function (resolve, reject) {
+                const tx = db.transaction(STORE, "readwrite");
+                tx.oncomplete = function () {
+                    resolve();
+                };
+                tx.onerror = function () {
+                    reject(tx.error || new Error("删除照片失败"));
+                };
+                tx.objectStore(STORE).delete(photoId);
+            });
+        }).catch(function () {
+            useMemory = true;
+            return deletePhoto(photoId);
+        });
+    }
+
+    /**
+     * 清空全部缓存（换班或开始新任务时用）。
+     * @returns {Promise<void>}
+     */
+    function clearAll() {
+        memoryRows.length = 0;
+        if (useMemory) {
+            return Promise.resolve();
+        }
+        return openDb().then(function (db) {
+            return new Promise(function (resolve, reject) {
+                const tx = db.transaction(STORE, "readwrite");
+                tx.oncomplete = function () {
+                    resolve();
+                };
+                tx.onerror = function () {
+                    reject(tx.error || new Error("清空缓存失败"));
+                };
+                tx.objectStore(STORE).clear();
+            });
+        }).catch(function () {
+            useMemory = true;
+            return Promise.resolve();
+        });
+    }
+
+    global.PhotoStorage = {
+        makeBatchId: makeBatchId,
+        savePhoto: savePhoto,
+        listPhotos: listPhotos,
+        deletePhoto: deletePhoto,
+        clearAll: clearAll,
+    };
+})(window);
+
+/**
+ * 把图片存到手机：优先系统分享（可选「存储图像」），
+ * 不行再触发下载。微信内置浏览器能力弱，页面会提示换系统浏览器。
+ */
+(function (global) {
+    /**
+     * 判断是否在微信内置浏览器。
+     * @returns {boolean}
+     */
+    function isWeChat() {
+        return /MicroMessenger/i.test(navigator.userAgent || "");
+    }
+
+    /**
+     * 判断是否 iOS。
+     * @returns {boolean}
+     */
+    function isIOS() {
+        return /iPad|iPhone|iPod/i.test(navigator.userAgent || "");
+    }
+
+    /**
+     * 百度 / 夸克 / UC / 手机自带浏览器（国内安卓常用）。
+     * @returns {boolean}
+     */
+    function isDomesticBrowser() {
+        const ua = navigator.userAgent || "";
+        return /baidu|bdbrowser|baiduboxapp|UCBrowser|UCWEB|Quark|HuaweiBrowser|MiuiBrowser|XiaoMi|MQQBrowser|VivoBrowser|HeyTap|OPPO|SamsungBrowser/i.test(
+            ua
+        );
+    }
+
+    /**
+     * 谷歌 Chrome（国内套壳浏览器 UA 里也有 Chrome，要排除）。
+     * @returns {boolean}
+     */
+    function isChrome() {
+        const ua = navigator.userAgent || "";
+        if (isDomesticBrowser() || isWeChat() || isIOS()) {
+            return false;
+        }
+        return /Chrome/i.test(ua) && !/Edg|OPR/i.test(ua);
+    }
+
+    /**
+     * 把 dataURL 转成 Blob，避免超大图用 atob 爆内存。
+     * @param {string} dataUrl
+     * @returns {Blob}
+     */
+    function dataUrlToBlob(dataUrl) {
+        const parts = dataUrl.split(",");
+        const mimeMatch = (parts[0] || "").match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
+        const binary = atob(parts[1] || "");
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i += 1) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return new Blob([bytes], { type: mime });
+    }
+
+    /**
+     * 触发浏览器下载（安卓 Chrome 通常进「下载」或相册）。
+     * @param {Blob} blob
+     * @param {string} filename
+     */
+    function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(function () {
+            URL.revokeObjectURL(url);
+        }, 4000);
+    }
+
+    /**
+     * 保存一张图到手机。先分享，再下载，保证至少有一条路能留下原图。
+     * @param {string} dataUrl
+     * @param {string} filename
+     * @returns {Promise<{method: string}>}
+     */
+    function saveImageToPhone(dataUrl, filename) {
+        const blob = dataUrlToBlob(dataUrl);
+        try {
+            if (typeof File === "function" && navigator.canShare) {
+                const file = new File([blob], filename, { type: blob.type || "image/jpeg" });
+                if (navigator.canShare({ files: [file] })) {
+                    return navigator
+                        .share({
+                            files: [file],
+                            title: filename,
+                            text: "样品照片",
+                        })
+                        .then(function () {
+                            return { method: "share" };
+                        })
+                        .catch(function (err) {
+                            if (err && err.name === "AbortError") {
+                                downloadBlob(blob, filename);
+                                return { method: "download-after-cancel" };
+                            }
+                            downloadBlob(blob, filename);
+                            return { method: "download" };
+                        });
+                }
+            }
+        } catch (err) {
+            // 百度等浏览器可能没有 File / share，改走下载和长按保存
+        }
+
+        downloadBlob(blob, filename);
+        return Promise.resolve({ method: "download" });
+    }
+
+    /**
+     * 给苹果手机看的提示：HTTP 局域网经常不能直接写入相册。
+     * @returns {string}
+     */
+    function saveHint() {
+        if (isIOS()) {
+            return "苹果手机请长按图片 → 选择「存储图像」。发微信时请勾选原图。";
+        }
+        return "请长按图片 → 保存到相册。百度浏览器常常不会自动下载。发微信时请勾选原图。";
+    }
+
+    global.PhotoSave = {
+        isWeChat: isWeChat,
+        isIOS: isIOS,
+        isChrome: isChrome,
+        isDomesticBrowser: isDomesticBrowser,
+        dataUrlToBlob: dataUrlToBlob,
+        downloadBlob: downloadBlob,
+        saveImageToPhone: saveImageToPhone,
+        saveHint: saveHint,
+    };
+})(window);
+
+/**
+ * 按张数选「格子尽量大」的布局，再按原图像素拼接。
+ * 不足 9 张不硬凑 3×3；超过 9 张由主流程拆成多页。
+ */
+(function (global) {
+    const CONFIG = global.APP_CONFIG;
+
+    /**
+     * 根据张数选择行、列，让每张图在拼图里尽量大。
+     * @param {number} count
+     * @returns {{rows: number, cols: number}}
+     */
+    function chooseGrid(count) {
+        const n = Math.max(1, count);
+        if (n === 1) {
+            return { rows: 1, cols: 1 };
+        }
+        if (n === 2) {
+            // 手机竖图：上下两张，每张都能用满宽度
+            return { rows: 2, cols: 1 };
+        }
+        if (n === 3 || n === 4) {
+            return { rows: 2, cols: 2 };
+        }
+        if (n === 5 || n === 6) {
+            return { rows: 2, cols: 3 };
+        }
+        return { rows: 3, cols: 3 };
+    }
+
+    /**
+     * 把 dataURL 读成 Image，失败时给出中文原因。
+     * @param {string} dataUrl
+     * @returns {Promise<HTMLImageElement>}
+     */
+    function loadImage(dataUrl) {
+        return new Promise(function (resolve, reject) {
+            if (!dataUrl) {
+                reject(new Error("空图片，无法拼入"));
+                return;
+            }
+            const image = new Image();
+            image.onload = function () {
+                if (!image.naturalWidth || !image.naturalHeight) {
+                    reject(new Error("图片尺寸为 0，已跳过"));
+                    return;
+                }
+                resolve(image);
+            };
+            image.onerror = function () {
+                reject(new Error("图片损坏，无法拼入"));
+            };
+            image.src = dataUrl;
+        });
+    }
+
+    /**
+     * 在格子里按「完整显示、不裁切」绘制，留边用深色填。
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {HTMLImageElement} image
+     * @param {number} x
+     * @param {number} y
+     * @param {number} cellW
+     * @param {number} cellH
+     */
+    function drawContain(ctx, image, x, y, cellW, cellH) {
+        const scale = Math.min(cellW / image.naturalWidth, cellH / image.naturalHeight);
+        const drawW = image.naturalWidth * scale;
+        const drawH = image.naturalHeight * scale;
+        const dx = x + (cellW - drawW) / 2;
+        const dy = y + (cellH - drawH) / 2;
+        ctx.drawImage(image, dx, dy, drawW, drawH);
+    }
+
+    /**
+     * 把一组已标注图拼成一张，尽量不缩小到看不清缺陷。
+     * @param {string[]} dataUrls
+     * @param {number} [cellMaxOverride] 可选，内存不够时传入更小的格子上限
+     * @returns {Promise<string>} JPEG dataURL
+     */
+    function buildCollage(dataUrls, cellMaxOverride) {
+        const urls = (dataUrls || []).filter(Boolean);
+        if (!urls.length) {
+            return Promise.reject(new Error("当前没有可拼的照片"));
+        }
+
+        return Promise.all(
+            urls.map(function (url) {
+                return loadImage(url).catch(function (err) {
+                    console.warn(err);
+                    return null;
+                });
+            })
+        ).then(function (images) {
+            const valid = images.filter(Boolean);
+            if (!valid.length) {
+                throw new Error("照片都读失败，请重新拍");
+            }
+
+            const grid = chooseGrid(valid.length);
+            const gap = CONFIG.COLLAGE_GAP;
+            const maxEdge = cellMaxOverride || CONFIG.COLLAGE_CELL_MAX;
+
+            // 格子尺寸取这批图里「较长边」的中位数，再封顶，避免一张超大图把内存打爆
+            const longSides = valid.map(function (img) {
+                return Math.max(img.naturalWidth, img.naturalHeight);
+            });
+            longSides.sort(function (a, b) {
+                return a - b;
+            });
+            const median = longSides[Math.floor(longSides.length / 2)];
+            const cellLong = Math.min(maxEdge, Math.max(800, median));
+
+            // 用第一张的宽高比当格子比例，整页更整齐
+            const first = valid[0];
+            const aspect = first.naturalWidth / first.naturalHeight;
+            let cellW;
+            let cellH;
+            if (aspect >= 1) {
+                cellW = cellLong;
+                cellH = Math.round(cellLong / aspect);
+            } else {
+                cellH = cellLong;
+                cellW = Math.round(cellLong * aspect);
+            }
+
+            const canvasW = grid.cols * cellW + (grid.cols + 1) * gap;
+            const canvasH = grid.rows * cellH + (grid.rows + 1) * gap;
+
+            const canvas = document.createElement("canvas");
+            canvas.width = canvasW;
+            canvas.height = canvasH;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+                throw new Error("当前浏览器无法绘制拼图");
+            }
+
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.fillStyle = CONFIG.COLLAGE_BG;
+            ctx.fillRect(0, 0, canvasW, canvasH);
+
+            valid.forEach(function (image, index) {
+                const row = Math.floor(index / grid.cols);
+                const col = index % grid.cols;
+                const x = gap + col * (cellW + gap);
+                const y = gap + row * (cellH + gap);
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(x, y, cellW, cellH);
+                drawContain(ctx, image, x, y, cellW, cellH);
+            });
+
+            if (canvas.width !== canvasW || canvas.height !== canvasH) {
+                throw new Error("拼图画布被浏览器缩小，改用较低像素重试");
+            }
+
+            const dataUrl = canvas.toDataURL("image/jpeg", CONFIG.JPEG_QUALITY);
+            if (!dataUrl || dataUrl.length < 100) {
+                throw new Error("拼图导出失败，改用较低像素重试");
+            }
+            return dataUrl;
+        });
+    }
+
+    /**
+     * 先按原图像素拼；内存不够再降低格子。对外仍叫 buildCollage。
+     * @param {string[]} dataUrls
+     * @returns {Promise<string>}
+     */
+    function buildCollageSafe(dataUrls) {
+        const steps = [null, 2560, 2048, 1600];
+        function tryAt(index) {
+            return buildCollage(dataUrls, steps[index]).catch(function (err) {
+                if (index + 1 < steps.length) {
+                    return tryAt(index + 1);
+                }
+                throw err;
+            });
+        }
+        return tryAt(0);
+    }
+
+    /**
+     * 把照片列表按 9 张一页切开。
+     * @param {Array} photos
+     * @param {number} pageSize
+     * @returns {Array<Array>}
+     */
+    function splitPages(photos, pageSize) {
+        const size = pageSize || CONFIG.BATCH_SIZE;
+        const pages = [];
+        for (let i = 0; i < photos.length; i += size) {
+            pages.push(photos.slice(i, i + size));
+        }
+        return pages;
+    }
+
+    global.PhotoCollage = {
+        chooseGrid: chooseGrid,
+        buildCollage: buildCollageSafe,
+        splitPages: splitPages,
+    };
+})(window);
+
+/**
+ * 标注编辑器：在原图像素坐标里记文字 / 箭头 / 圆圈，
+ * 屏幕上只是预览；保存时按原分辨率一次性画上去，避免越改越糊。
+ */
+(function (global) {
+    const CONFIG = global.APP_CONFIG;
+
+    /**
+     * @param {HTMLCanvasElement} canvas
+     * @param {HTMLImageElement} image
+     */
+    function createEditor(canvas, image) {
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            throw new Error("当前浏览器无法打开标注画板");
+        }
+
+        /** @type {Array<Object>} */
+        let marks = [];
+        let tool = "text";
+        let color = CONFIG.DEFAULT_COLOR;
+        let drawing = null;
+        let view = { scale: 1, offsetX: 0, offsetY: 0 };
+
+        /**
+         * 按屏幕大小适配画布，但逻辑坐标始终是原图像素。
+         */
+        function fitCanvas() {
+            const wrap = canvas.parentElement;
+            const maxW = (wrap && wrap.clientWidth) || window.innerWidth;
+            const maxH = Math.max(240, window.innerHeight * 0.58);
+            const scale = Math.min(maxW / image.naturalWidth, maxH / image.naturalHeight);
+            view.scale = scale;
+            canvas.width = Math.round(image.naturalWidth * scale);
+            canvas.height = Math.round(image.naturalHeight * scale);
+            canvas.style.width = canvas.width + "px";
+            canvas.style.height = canvas.height + "px";
+            redraw();
+        }
+
+        /**
+         * 屏幕点 -> 原图像素。
+         * @param {number} clientX
+         * @param {number} clientY
+         */
+        function toImagePoint(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (clientX - rect.left) * (image.naturalWidth / rect.width);
+            const y = (clientY - rect.top) * (image.naturalHeight / rect.height);
+            return {
+                x: Math.max(0, Math.min(image.naturalWidth, x)),
+                y: Math.max(0, Math.min(image.naturalHeight, y)),
+            };
+        }
+
+        /**
+         * 画一条带箭头的线。
+         */
+        function drawArrow(targetCtx, mark, scale) {
+            const x1 = mark.x1 * scale;
+            const y1 = mark.y1 * scale;
+            const x2 = mark.x2 * scale;
+            const y2 = mark.y2 * scale;
+            const lineW = Math.max(2, mark.lineWidth * scale);
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            const head = Math.max(12, lineW * 5);
+
+            targetCtx.strokeStyle = mark.color;
+            targetCtx.fillStyle = mark.color;
+            targetCtx.lineWidth = lineW;
+            targetCtx.lineCap = "round";
+            targetCtx.beginPath();
+            targetCtx.moveTo(x1, y1);
+            targetCtx.lineTo(x2, y2);
+            targetCtx.stroke();
+
+            targetCtx.beginPath();
+            targetCtx.moveTo(x2, y2);
+            targetCtx.lineTo(
+                x2 - head * Math.cos(angle - Math.PI / 6),
+                y2 - head * Math.sin(angle - Math.PI / 6)
+            );
+            targetCtx.lineTo(
+                x2 - head * Math.cos(angle + Math.PI / 6),
+                y2 - head * Math.sin(angle + Math.PI / 6)
+            );
+            targetCtx.closePath();
+            targetCtx.fill();
+        }
+
+        /**
+         * 把一条标注画到任意 ctx（预览或导出）。
+         */
+        function paintMark(targetCtx, mark, scale) {
+            targetCtx.save();
+            if (mark.type === "text") {
+                const fontSize = Math.max(18, mark.fontSize * scale);
+                targetCtx.font =
+                    "600 " + fontSize + 'px "PingFang SC","Microsoft YaHei",sans-serif';
+                targetCtx.textBaseline = "middle";
+                targetCtx.lineJoin = "round";
+                targetCtx.lineWidth = Math.max(2, fontSize * 0.08);
+                targetCtx.strokeStyle = "rgba(0,0,0,0.55)";
+                targetCtx.fillStyle = mark.color;
+                const tx = mark.x * scale;
+                const ty = mark.y * scale;
+                targetCtx.strokeText(mark.text, tx, ty);
+                targetCtx.fillText(mark.text, tx, ty);
+            } else if (mark.type === "arrow") {
+                drawArrow(targetCtx, mark, scale);
+            } else if (mark.type === "circle") {
+                targetCtx.strokeStyle = mark.color;
+                targetCtx.lineWidth = Math.max(2, mark.lineWidth * scale);
+                targetCtx.beginPath();
+                targetCtx.ellipse(
+                    mark.cx * scale,
+                    mark.cy * scale,
+                    Math.max(4, mark.rx * scale),
+                    Math.max(4, mark.ry * scale),
+                    0,
+                    0,
+                    Math.PI * 2
+                );
+                targetCtx.stroke();
+            }
+            targetCtx.restore();
+        }
+
+        /**
+         * 重绘预览（屏幕分辨率即可，手指操作要流畅）。
+         */
+        function redraw() {
+            const scale = canvas.width / image.naturalWidth;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            marks.forEach(function (mark) {
+                paintMark(ctx, mark, scale);
+            });
+            if (drawing) {
+                paintMark(ctx, drawing, scale);
+            }
+        }
+
+        /**
+         * 默认字号、线宽随原图走，大图不会显得字太小。
+         */
+        function defaultFontSize() {
+            return image.naturalWidth * CONFIG.TEXT_SIZE_RATIO;
+        }
+
+        function defaultLineWidth() {
+            return Math.max(3, image.naturalWidth * CONFIG.LINE_WIDTH_RATIO);
+        }
+
+        /**
+         * 贴上型号文字。点画布时调用。
+         * @param {string} text
+         * @param {{x:number,y:number}} point
+         */
+        function addText(text, point) {
+            const value = (text || "").trim();
+            if (!value) {
+                return false;
+            }
+            marks.push({
+                type: "text",
+                x: point.x,
+                y: point.y,
+                text: value,
+                color: color,
+                fontSize: defaultFontSize(),
+            });
+            redraw();
+            return true;
+        }
+
+        function setTool(nextTool) {
+            tool = nextTool;
+        }
+
+        function setColor(nextColor) {
+            color = nextColor;
+        }
+
+        function undo() {
+            if (drawing) {
+                drawing = null;
+            } else {
+                marks.pop();
+            }
+            redraw();
+        }
+
+        /**
+         * 按原图像素导出，文字和圈都会跟着原图放大，不二次压缩预览图。
+         * @returns {string}
+         */
+        function exportDataUrl() {
+            const out = document.createElement("canvas");
+            out.width = image.naturalWidth;
+            out.height = image.naturalHeight;
+            const outCtx = out.getContext("2d");
+            if (!outCtx) {
+                throw new Error("导出画布失败");
+            }
+            // 1:1 贴原图，关闭平滑，避免导出时被二次模糊
+            outCtx.imageSmoothingEnabled = false;
+            outCtx.drawImage(image, 0, 0);
+            marks.forEach(function (mark) {
+                paintMark(outCtx, mark, 1);
+            });
+            return out.toDataURL("image/jpeg", CONFIG.JPEG_QUALITY);
+        }
+
+        function onPointerDown(event) {
+            event.preventDefault();
+            const point = toImagePoint(event.clientX, event.clientY);
+            if (tool === "text") {
+                canvas.dispatchEvent(
+                    new CustomEvent("place-text", { detail: point })
+                );
+                return;
+            }
+            if (tool === "arrow") {
+                drawing = {
+                    type: "arrow",
+                    x1: point.x,
+                    y1: point.y,
+                    x2: point.x,
+                    y2: point.y,
+                    color: color,
+                    lineWidth: defaultLineWidth(),
+                };
+            } else if (tool === "circle") {
+                drawing = {
+                    type: "circle",
+                    cx: point.x,
+                    cy: point.y,
+                    rx: 4,
+                    ry: 4,
+                    color: color,
+                    lineWidth: defaultLineWidth(),
+                    startX: point.x,
+                    startY: point.y,
+                };
+            }
+        }
+
+        function onPointerMove(event) {
+            if (!drawing) {
+                return;
+            }
+            event.preventDefault();
+            const point = toImagePoint(event.clientX, event.clientY);
+            if (drawing.type === "arrow") {
+                drawing.x2 = point.x;
+                drawing.y2 = point.y;
+            } else if (drawing.type === "circle") {
+                drawing.rx = Math.abs(point.x - drawing.startX);
+                drawing.ry = Math.abs(point.y - drawing.startY);
+                drawing.cx = (point.x + drawing.startX) / 2;
+                drawing.cy = (point.y + drawing.startY) / 2;
+            }
+            redraw();
+        }
+
+        function onPointerUp(event) {
+            if (!drawing) {
+                return;
+            }
+            event.preventDefault();
+            marks.push(drawing);
+            drawing = null;
+            redraw();
+        }
+
+        canvas.addEventListener("pointerdown", onPointerDown);
+        canvas.addEventListener("pointermove", onPointerMove);
+        canvas.addEventListener("pointerup", onPointerUp);
+        canvas.addEventListener("pointercancel", onPointerUp);
+        window.addEventListener("resize", fitCanvas);
+        fitCanvas();
+
+        /**
+         * 关掉本张编辑，避免下一张还叠着旧的触摸事件。
+         */
+        function destroy() {
+            canvas.removeEventListener("pointerdown", onPointerDown);
+            canvas.removeEventListener("pointermove", onPointerMove);
+            canvas.removeEventListener("pointerup", onPointerUp);
+            canvas.removeEventListener("pointercancel", onPointerUp);
+            window.removeEventListener("resize", fitCanvas);
+        }
+
+        return {
+            setTool: setTool,
+            setColor: setColor,
+            addText: addText,
+            undo: undo,
+            exportDataUrl: exportDataUrl,
+            fitCanvas: fitCanvas,
+            destroy: destroy,
+            getTool: function () {
+                return tool;
+            },
+        };
+    }
+
+    /**
+     * 用原文件直接解码成 Image（不再压一遍）。
+     * @param {File} file
+     * @returns {Promise<HTMLImageElement>}
+     */
+    function loadByObjectUrl(file) {
+        return new Promise(function (resolve, reject) {
+            const url = URL.createObjectURL(file);
+            const image = new Image();
+            image.onload = function () {
+                URL.revokeObjectURL(url);
+                if (!image.naturalWidth) {
+                    reject(new Error("照片读出来是空的，请重拍"));
+                    return;
+                }
+                resolve(image);
+            };
+            image.onerror = function () {
+                URL.revokeObjectURL(url);
+                reject(new Error("这张照片打不开，请换一张"));
+            };
+            image.src = url;
+        });
+    }
+
+    /**
+     * 少数浏览器会把 Image 缩得很小；用相机原像素的 Bitmap 兜底。
+     * @param {ImageBitmap} bitmap
+     * @returns {Promise<HTMLImageElement>}
+     */
+    function imageFromBitmap(bitmap) {
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            bitmap.close();
+            return Promise.reject(new Error("无法按原像素解码"));
+        }
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(bitmap, 0, 0);
+        bitmap.close();
+        return new Promise(function (resolve, reject) {
+            canvas.toBlob(
+                function (blob) {
+                    if (!blob) {
+                        reject(new Error("原像素转存失败"));
+                        return;
+                    }
+                    loadByObjectUrl(blob).then(resolve).catch(reject);
+                },
+                "image/jpeg",
+                CONFIG.JPEG_QUALITY
+            );
+        });
+    }
+
+    /**
+     * 把文件读成 Image，尽量保留系统相机原分辨率。
+     * @param {File} file
+     * @returns {Promise<HTMLImageElement>}
+     */
+    function loadFileAsImage(file) {
+        if (!file) {
+            return Promise.reject(new Error("没有选到照片"));
+        }
+        return loadByObjectUrl(file).then(function (image) {
+            if (!window.createImageBitmap) {
+                return image;
+            }
+            return createImageBitmap(file, { imageOrientation: "from-image" })
+                .then(function (bitmap) {
+                    const bigger =
+                        bitmap.width > image.naturalWidth ||
+                        bitmap.height > image.naturalHeight;
+                    if (bigger) {
+                        return imageFromBitmap(bitmap);
+                    }
+                    bitmap.close();
+                    return image;
+                })
+                .catch(function () {
+                    return image;
+                });
+        });
+    }
+
+    global.PhotoEditor = {
+        createEditor: createEditor,
+        loadFileAsImage: loadFileAsImage,
+    };
+})(window);
+
+/**
+ * 车间主流程：拍照 → 当场标注 → 存相册/缓存 → 满 9 张自动拼，也可提前拼。
+ */
+(function () {
+    const CONFIG = window.APP_CONFIG;
+    const $ = function (id) {
+        return document.getElementById(id);
+    };
+
+    const els = {
+        wechatBar: $("wechatBar"),
+        iosBar: $("iosBar"),
+        chromeBar: $("chromeBar"),
+        statusText: $("statusText"),
+        logBox: $("logBox"),
+        homeView: $("homeView"),
+        editorView: $("editorView"),
+        collageView: $("collageView"),
+        thumbList: $("thumbList"),
+        btnEarlyCollage: $("btnEarlyCollage"),
+        btnClear: $("btnClear"),
+        fileShot: $("fileShot"),
+        fileAlbum: $("fileAlbum"),
+        editorCanvas: $("editorCanvas"),
+        textInput: $("textInput"),
+        toolText: $("toolText"),
+        toolArrow: $("toolArrow"),
+        toolCircle: $("toolCircle"),
+        btnUndo: $("btnUndo"),
+        btnCancelEdit: $("btnCancelEdit"),
+        btnSaveEdit: $("btnSaveEdit"),
+        colorRow: $("colorRow"),
+        collagePreview: $("collagePreview"),
+        btnSaveCollage: $("btnSaveCollage"),
+        btnBackHome: $("btnBackHome"),
+        saveSheet: $("saveSheet"),
+        saveSheetHint: $("saveSheetHint"),
+        saveSheetImg: $("saveSheetImg"),
+        btnCloseSheet: $("btnCloseSheet"),
+    };
+
+    /** 当前正在标的原图 */
+    let editor = null;
+    let editorImage = null;
+    /** 刚拼好、等待保存的拼图 */
+    let pendingCollageUrl = "";
+    let currentBatchId = window.PhotoStorage.makeBatchId();
+
+    /**
+     * 弹出刚导出的图，方便长按存进相册（苹果 HTTP 下尤其需要）。
+     * @param {string} dataUrl
+     */
+    function showSaveSheet(dataUrl) {
+        els.saveSheetImg.src = dataUrl;
+        els.saveSheetHint.textContent = window.PhotoSave.saveHint();
+        els.saveSheet.hidden = false;
+    }
+
+    function logLine(message) {
+        const time = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+        const line = document.createElement("div");
+        line.textContent = time + "  " + message;
+        els.logBox.appendChild(line);
+        els.logBox.scrollTop = els.logBox.scrollHeight;
+    }
+
+    /**
+     * 切视图：首页 / 标注 / 拼图预览。
+     * @param {"home"|"editor"|"collage"} name
+     */
+    function showView(name) {
+        els.homeView.hidden = name !== "home";
+        els.editorView.hidden = name !== "editor";
+        els.collageView.hidden = name !== "collage";
+    }
+
+    function setToolActive(toolName) {
+        [els.toolText, els.toolArrow, els.toolCircle].forEach(function (btn) {
+            btn.classList.toggle("is-active", btn.dataset.tool === toolName);
+        });
+        if (editor) {
+            editor.setTool(toolName);
+        }
+        els.textInput.parentElement.classList.toggle("is-disabled", toolName !== "text");
+    }
+
+    /**
+     * 刷新首页：张数、缩略图、按钮状态。
+     */
+    function refreshHome() {
+        return window.PhotoStorage.listPhotos().then(function (photos) {
+            const batchPhotos = photos.filter(function (item) {
+                return item.batchId === currentBatchId && !item.isCollage;
+            });
+            const n = batchPhotos.length;
+            els.statusText.textContent =
+                "本批 " + n + " / " + CONFIG.BATCH_SIZE + " 张（批次 " + currentBatchId + "）";
+            els.btnEarlyCollage.disabled = n < 1;
+            els.thumbList.innerHTML = "";
+
+            batchPhotos.forEach(function (photo) {
+                const card = document.createElement("div");
+                card.className = "thumb-card";
+                const img = document.createElement("img");
+                img.src = photo.dataUrl;
+                img.alt = photo.sampleId || "样品图";
+                const cap = document.createElement("div");
+                cap.className = "thumb-cap";
+                cap.textContent = photo.sampleId || "未写型号";
+                const del = document.createElement("button");
+                del.type = "button";
+                del.className = "thumb-del";
+                del.textContent = "删";
+                del.addEventListener("click", function () {
+                    window.PhotoStorage.deletePhoto(photo.id)
+                        .then(function () {
+                            logLine("已删除一张细节图");
+                            return refreshHome();
+                        })
+                        .catch(function (err) {
+                            logLine("删除失败：" + err.message);
+                        });
+                });
+                card.appendChild(img);
+                card.appendChild(cap);
+                card.appendChild(del);
+                els.thumbList.appendChild(card);
+            });
+            return batchPhotos;
+        });
+    }
+
+    /**
+     * 打开标注页。拍照和相册导入走同一条路，保证画质处理一致。
+     * @param {File} file
+     */
+    function openEditorWithFile(file) {
+        window.PhotoEditor.loadFileAsImage(file)
+            .then(function (image) {
+                if (editor && editor.destroy) {
+                    editor.destroy();
+                }
+                editorImage = image;
+                editor = window.PhotoEditor.createEditor(els.editorCanvas, image);
+                // 同型号连拍时保留上次文字，避免反复输入
+                els.textInput.focus();
+                setToolActive("text");
+                showView("editor");
+                const mega = (
+                    (image.naturalWidth * image.naturalHeight) /
+                    1000000
+                ).toFixed(1);
+                logLine(
+                    "已打开原图 " +
+                        image.naturalWidth +
+                        "×" +
+                        image.naturalHeight +
+                        "（" +
+                        mega +
+                        "MP），请立刻写型号"
+                );
+            })
+            .catch(function (err) {
+                logLine("打开照片失败：" + err.message);
+            });
+    }
+
+    /**
+     * 当前这批未拼过的细节图。
+     * @returns {Promise<Array>}
+     */
+    function getCurrentBatchPhotos() {
+        return window.PhotoStorage.listPhotos().then(function (photos) {
+            return photos.filter(function (item) {
+                return item.batchId === currentBatchId && !item.isCollage;
+            });
+        });
+    }
+
+    /**
+     * 生成拼图并进入预览。满 9 张或点「提前拼图」都走这里。
+     * @param {boolean} autoTrigger
+     */
+    function makeCollage(autoTrigger) {
+        return getCurrentBatchPhotos().then(function (photos) {
+            if (!photos.length) {
+                throw new Error("还没有已保存的细节图");
+            }
+            logLine((autoTrigger ? "已满 " + CONFIG.BATCH_SIZE + " 张，" : "提前") + "开始拼图");
+            // 一页最多 9 张；多出来的等下一批，避免挤出画布
+            const page = photos.slice(0, CONFIG.BATCH_SIZE);
+            const urls = page.map(function (item) {
+                return item.dataUrl;
+            });
+            return window.PhotoCollage.buildCollage(urls).then(function (dataUrl) {
+                pendingCollageUrl = dataUrl;
+                els.collagePreview.src = dataUrl;
+                showView("collage");
+                logLine("拼图已生成，请再点一次「保存拼图到相册」");
+            });
+        });
+    }
+
+    /**
+     * 保存标注图：缓存 + 调起手机保存/分享。
+     */
+    function saveEditedPhoto() {
+        if (!editor) {
+            logLine("没有正在编辑的照片");
+            return;
+        }
+        const sampleId = (els.textInput.value || "").trim();
+        let dataUrl;
+        try {
+            dataUrl = editor.exportDataUrl();
+        } catch (err) {
+            logLine("导出失败：" + err.message);
+            return;
+        }
+
+        const photo = {
+            id: "p-" + Date.now() + "-" + Math.random().toString(16).slice(2, 8),
+            batchId: currentBatchId,
+            sampleId: sampleId,
+            dataUrl: dataUrl,
+            createdAt: Date.now(),
+            isCollage: false,
+        };
+
+        const filename =
+            (sampleId || "sample") +
+            "_" +
+            currentBatchId +
+            "_" +
+            String(Date.now()).slice(-6) +
+            ".jpg";
+
+        els.btnSaveEdit.disabled = true;
+        window.PhotoStorage.savePhoto(photo)
+            .then(function () {
+                return window.PhotoSave.saveImageToPhone(dataUrl, filename);
+            })
+            .then(function () {
+                logLine("细节图已保存" + (sampleId ? "（" + sampleId + "）" : ""));
+                showSaveSheet(dataUrl);
+                if (editor && editor.destroy) {
+                    editor.destroy();
+                }
+                editor = null;
+                editorImage = null;
+                showView("home");
+                return refreshHome();
+            })
+            .then(function (batchPhotos) {
+                if (batchPhotos.length >= CONFIG.BATCH_SIZE) {
+                    return makeCollage(true);
+                }
+                return null;
+            })
+            .catch(function (err) {
+                logLine("保存失败：" + err.message);
+            })
+            .then(function () {
+                els.btnSaveEdit.disabled = false;
+            });
+    }
+
+    /**
+     * 保存拼图后，开启新批次，细节图仍留在缓存里可回看缩略图所在批次。
+     */
+    function saveCollageAndRotateBatch() {
+        if (!pendingCollageUrl) {
+            logLine("没有待保存的拼图");
+            return;
+        }
+        const filename = "collage_" + currentBatchId + ".jpg";
+        const record = {
+            id: "c-" + Date.now(),
+            batchId: currentBatchId,
+            sampleId: "拼图",
+            dataUrl: pendingCollageUrl,
+            createdAt: Date.now(),
+            isCollage: true,
+        };
+
+        els.btnSaveCollage.disabled = true;
+        window.PhotoStorage.savePhoto(record)
+            .then(function () {
+                return window.PhotoSave.saveImageToPhone(pendingCollageUrl, filename);
+            })
+            .then(function () {
+                logLine("拼图已保存，开始下一批");
+                showSaveSheet(pendingCollageUrl);
+                pendingCollageUrl = "";
+                currentBatchId = window.PhotoStorage.makeBatchId();
+                showView("home");
+                return refreshHome();
+            })
+            .catch(function (err) {
+                logLine("拼图保存失败：" + err.message);
+            })
+            .then(function () {
+                els.btnSaveCollage.disabled = false;
+            });
+    }
+
+    function bindEvents() {
+        els.fileShot.addEventListener("change", function () {
+            const file = els.fileShot.files && els.fileShot.files[0];
+            els.fileShot.value = "";
+            if (file) {
+                openEditorWithFile(file);
+            }
+        });
+        els.fileAlbum.addEventListener("change", function () {
+            const file = els.fileAlbum.files && els.fileAlbum.files[0];
+            els.fileAlbum.value = "";
+            if (file) {
+                openEditorWithFile(file);
+            }
+        });
+
+        els.toolText.addEventListener("click", function () {
+            setToolActive("text");
+        });
+        els.toolArrow.addEventListener("click", function () {
+            setToolActive("arrow");
+        });
+        els.toolCircle.addEventListener("click", function () {
+            setToolActive("circle");
+        });
+        els.btnUndo.addEventListener("click", function () {
+            if (editor) {
+                editor.undo();
+            }
+        });
+        els.btnCancelEdit.addEventListener("click", function () {
+            if (editor && editor.destroy) {
+                editor.destroy();
+            }
+            editor = null;
+            editorImage = null;
+            showView("home");
+            logLine("已取消这张，未保存");
+        });
+        els.btnSaveEdit.addEventListener("click", saveEditedPhoto);
+
+        els.editorCanvas.addEventListener("place-text", function (event) {
+            if (!editor) {
+                return;
+            }
+            const ok = editor.addText(els.textInput.value, event.detail);
+            if (!ok) {
+                logLine("请先在上方输入型号，再点照片贴上去");
+                els.textInput.focus();
+            }
+        });
+
+        els.colorRow.addEventListener("click", function (event) {
+            const btn = event.target.closest("[data-color]");
+            if (!btn) {
+                return;
+            }
+            const color = btn.getAttribute("data-color");
+            Array.prototype.forEach.call(els.colorRow.children, function (item) {
+                item.classList.toggle("is-active", item === btn);
+            });
+            if (editor) {
+                editor.setColor(color);
+            }
+        });
+
+        els.btnEarlyCollage.addEventListener("click", function () {
+            makeCollage(false).catch(function (err) {
+                logLine("拼图失败：" + err.message);
+            });
+        });
+        els.btnSaveCollage.addEventListener("click", saveCollageAndRotateBatch);
+        els.btnBackHome.addEventListener("click", function () {
+            pendingCollageUrl = "";
+            showView("home");
+        });
+        els.btnCloseSheet.addEventListener("click", function () {
+            els.saveSheet.hidden = true;
+            els.saveSheetImg.src = "";
+        });
+        els.btnClear.addEventListener("click", function () {
+            if (!window.confirm("清空本机缓存的全部细节图和拼图？相册里已保存的不会删。")) {
+                return;
+            }
+            window.PhotoStorage.clearAll()
+                .then(function () {
+                    currentBatchId = window.PhotoStorage.makeBatchId();
+                    logLine("缓存已清空");
+                    return refreshHome();
+                })
+                .catch(function (err) {
+                    logLine("清空失败：" + err.message);
+                });
+        });
+    }
+
+    function isHomeScreen() {
+        return (
+            window.navigator.standalone === true ||
+            window.matchMedia("(display-mode: standalone)").matches
+        );
+    }
+
+    function boot() {
+        if (window.PhotoSave.isWeChat()) {
+            els.wechatBar.hidden = false;
+        }
+        if (els.chromeBar && window.PhotoSave.isChrome()) {
+            els.chromeBar.hidden = false;
+        }
+        if (els.iosBar && window.PhotoSave.isIOS() && !isHomeScreen()) {
+            els.iosBar.hidden = false;
+        }
+        bindEvents();
+        setToolActive("text");
+        showView("home");
+        refreshHome()
+            .then(function () {
+                if (window.PhotoSave.isIOS()) {
+                    logLine("苹果请用 Safari。点拍照会调系统相机，长按图片可存相册");
+                } else {
+                    logLine("安卓请用百度浏览器。点拍照会调系统相机，发微信请勾选原图");
+                }
+            })
+            .catch(function (err) {
+                logLine("初始化失败：" + err.message);
+            });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", boot);
+    } else {
+        boot();
+    }
+})();
+
+</script>
+</body>
+</html>

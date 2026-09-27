@@ -1,0 +1,15 @@
+{
+  "name": "样品拍照拼图",
+  "short_name": "样品拼图",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#121212",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

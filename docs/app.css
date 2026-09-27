@@ -1,0 +1,246 @@
+/* 车间手机页：大按钮、深色底、少装饰，戴手套也能点到 */
+:root {
+    --bg: #121212;
+    --card: #1d1d1d;
+    --text: #f3f3f3;
+    --muted: #b5b5b5;
+    --red: #e53935;
+    --line: #333;
+    --ok: #2e7d32;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+body {
+    max-width: 720px;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: 12px 12px 24px;
+}
+
+.ios-bar {
+    background: #1e3a5f;
+    color: #fff;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.wechat-bar {
+    background: #7a1f1f;
+    color: #fff;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+h1 {
+    font-size: 20px;
+    margin: 8px 0 4px;
+}
+
+.hint,
+.status {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 10px;
+}
+
+/* 输入框铺满按钮。百度/UC 不吃「代码代点」，必须手指直接点到 input */
+.file-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.file-btn input {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    /* 苹果 Safari 对 opacity:0 的文件框有时点不到，留一点透明度 */
+    opacity: 0.01;
+    font-size: 80px;
+}
+
+.file-btn-sub {
+    background: #2b2b2b;
+    flex: 1 1 120px;
+}
+
+.btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+button {
+    border: 0;
+    border-radius: 10px;
+    min-height: 48px;
+    padding: 0 14px;
+    font-size: 16px;
+    color: #fff;
+    background: #2b2b2b;
+    touch-action: manipulation;
+}
+
+button:disabled {
+    opacity: 0.4;
+}
+
+.btn-main {
+    background: var(--red);
+    flex: 1 1 160px;
+    font-weight: 700;
+}
+
+.btn-ok {
+    background: var(--ok);
+    flex: 1 1 140px;
+}
+
+.thumb-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.thumb-card {
+    position: relative;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.thumb-card img {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    display: block;
+}
+
+.thumb-cap {
+    font-size: 12px;
+    padding: 4px 6px;
+    color: #eee;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.thumb-del {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-height: 28px;
+    padding: 0 8px;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.65);
+}
+
+.log-box {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    min-height: 88px;
+    max-height: 160px;
+    overflow: auto;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #cfcfcf;
+    line-height: 1.45;
+}
+
+.editor-tools,
+.color-row,
+.text-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0;
+}
+
+.text-row input {
+    flex: 1 1 160px;
+    min-height: 48px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: #000;
+    color: #fff;
+    font-size: 18px;
+    padding: 0 10px;
+}
+
+.text-row.is-disabled {
+    opacity: 0.45;
+}
+
+.editor-wrap {
+    background: #000;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    overflow: auto;
+    touch-action: none;
+}
+
+#editorCanvas {
+    display: block;
+    max-width: 100%;
+}
+
+.is-active {
+    outline: 2px solid #fff;
+}
+
+.color-dot {
+    width: 42px;
+    min-height: 42px;
+    border-radius: 50%;
+    padding: 0;
+}
+
+.collage-preview {
+    width: 100%;
+    border-radius: 8px;
+    background: #000;
+    display: block;
+}
+
+.save-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: 0;
+    background: rgba(0, 0, 0, 0.88);
+    padding: 16px 12px;
+    overflow: auto;
+    z-index: 20;
+}
+
+[hidden] {
+    display: none !important;
+}
