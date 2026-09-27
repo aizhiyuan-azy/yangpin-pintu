@@ -12,7 +12,9 @@
         iosBar: $("iosBar"),
         chromeBar: $("chromeBar"),
         statusText: $("statusText"),
+        progressFill: $("progressFill"),
         logBox: $("logBox"),
+        toast: $("toast"),
         homeView: $("homeView"),
         editorView: $("editorView"),
         collageView: $("collageView"),
@@ -53,9 +55,28 @@
      * @param {string} dataUrl
      */
     function showSaveSheet(dataUrl) {
+        if (!els.saveSheet) {
+            return;
+        }
         els.saveSheetImg.src = dataUrl;
         els.saveSheetHint.textContent = window.PhotoSave.saveHint();
         els.saveSheet.hidden = false;
+    }
+
+    /**
+     * 底部短提示，替代每次全屏长按保存。
+     * @param {string} message
+     */
+    function showToast(message) {
+        if (!els.toast) {
+            return;
+        }
+        els.toast.textContent = message;
+        els.toast.hidden = false;
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(function () {
+            els.toast.hidden = true;
+        }, 2200);
     }
 
     function logLine(message) {
@@ -95,8 +116,11 @@
                 return item.batchId === currentBatchId && !item.isCollage;
             });
             const n = batchPhotos.length;
-            els.statusText.textContent =
-                "本批 " + n + " / " + CONFIG.BATCH_SIZE + " 张（批次 " + currentBatchId + "）";
+            els.statusText.textContent = "本批 " + n + " / " + CONFIG.BATCH_SIZE;
+            if (els.progressFill) {
+                els.progressFill.style.width =
+                    Math.min(100, (n / CONFIG.BATCH_SIZE) * 100) + "%";
+            }
             els.btnEarlyCollage.disabled = n < 1;
             els.thumbList.innerHTML = "";
 
@@ -241,9 +265,12 @@
             });
             return window.PhotoCollage.buildCollage(urls).then(function (dataUrl) {
                 pendingCollageUrl = dataUrl;
-                els.collagePreview.src = dataUrl;
-                showView("collage");
-                logLine("拼图已生成，请再点一次「保存拼图到相册」");
+                if (els.collagePreview) {
+                    els.collagePreview.src = dataUrl;
+                }
+                logLine("拼图已生成，正在保存");
+                // 不再让产线再点一次「保存拼图」
+                return saveCollageAndRotateBatch();
             });
         });
     }
@@ -257,6 +284,9 @@
             return;
         }
         const sampleId = (els.textInput.value || "").trim();
+        if (sampleId && editor.ensureSampleText) {
+            editor.ensureSampleText(sampleId);
+        }
         let dataUrl;
         try {
             dataUrl = editor.exportDataUrl();
@@ -289,16 +319,13 @@
             })
             .then(function () {
                 logLine("细节图已保存" + (sampleId ? "（" + sampleId + "）" : ""));
+                showToast("已保存" + (sampleId ? " " + sampleId : ""));
                 if (editor && editor.destroy) {
                     editor.destroy();
                 }
                 editor = null;
                 editorImage = null;
                 showView("home");
-                // 队列里还有图时先不挡长按保存层，避免打断连标
-                if (!importQueue.length) {
-                    showSaveSheet(dataUrl);
-                }
                 return refreshHome();
             })
             .then(function (batchPhotos) {
@@ -341,7 +368,7 @@
             })
             .then(function () {
                 logLine("拼图已保存，开始下一批");
-                showSaveSheet(pendingCollageUrl);
+                showToast("拼图已保存");
                 pendingCollageUrl = "";
                 currentBatchId = window.PhotoStorage.makeBatchId();
                 showView("home");

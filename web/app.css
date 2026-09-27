@@ -1,12 +1,12 @@
-/* 车间手机页：大按钮、深色底、少装饰，戴手套也能点到 */
+/* 车间手机页：大按钮、深色卡片，戴手套也能点 */
 :root {
-    --bg: #121212;
-    --card: #1d1d1d;
-    --text: #f3f3f3;
-    --muted: #b5b5b5;
-    --red: #e53935;
-    --line: #333;
-    --ok: #2e7d32;
+    --bg: #0f1419;
+    --card: #1a222c;
+    --text: #f4f7fb;
+    --muted: #8b98a8;
+    --accent: #ff5a4f;
+    --ok: #3db88a;
+    --line: rgba(255, 255, 255, 0.08);
 }
 
 * {
@@ -17,58 +17,81 @@ html,
 body {
     margin: 0;
     padding: 0;
-    background: var(--bg);
+    background: radial-gradient(1200px 500px at 50% -120px, #243044 0%, var(--bg) 55%);
     color: var(--text);
-    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+        "Microsoft YaHei", "Noto Sans SC", sans-serif;
 }
 
 body {
     max-width: 720px;
     margin: 0 auto;
     min-height: 100vh;
-    padding: 12px 12px 24px;
+    padding: 16px 16px 28px;
 }
 
-.ios-bar {
-    background: #1e3a5f;
-    color: #fff;
+.banner {
     padding: 10px 12px;
-    border-radius: 8px;
+    border-radius: 12px;
     margin-bottom: 10px;
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.45;
 }
 
-.wechat-bar {
-    background: #7a1f1f;
-    color: #fff;
-    padding: 10px 12px;
-    border-radius: 8px;
-    margin-bottom: 10px;
-    font-size: 14px;
-    line-height: 1.45;
+.banner-warn {
+    background: rgba(255, 90, 79, 0.16);
+    color: #ffd2ce;
+}
+
+.banner-info {
+    background: rgba(90, 158, 255, 0.16);
+    color: #cfe3ff;
+}
+
+.top {
+    margin: 6px 0 16px;
 }
 
 h1 {
-    font-size: 20px;
-    margin: 8px 0 4px;
+    font-size: 24px;
+    letter-spacing: 0.04em;
+    margin: 0 0 4px;
 }
 
-.hint,
-.status {
+.status,
+.hint {
     color: var(--muted);
     font-size: 13px;
     line-height: 1.5;
-    margin: 0 0 10px;
+    margin: 0;
 }
 
-/* 输入框铺满按钮。百度/UC 不吃「代码代点」，必须手指直接点到 input */
+.progress {
+    margin-top: 12px;
+    height: 6px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.progress i {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #ff7a45, var(--accent));
+    transition: width 0.25s ease;
+}
+
 .file-btn {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    min-height: 52px;
+    border-radius: 14px;
+    font-size: 16px;
 }
 
 .file-btn input {
@@ -77,61 +100,71 @@ h1 {
     top: 0;
     width: 100%;
     height: 100%;
-    /* 苹果 Safari 对 opacity:0 的文件框有时点不到，留一点透明度 */
     opacity: 0.01;
     font-size: 80px;
 }
 
-.file-btn-sub {
-    background: #2b2b2b;
-    flex: 1 1 120px;
-}
-
+.hero-btns,
 .btn-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin: 10px 0;
+    gap: 10px;
+    margin: 0 0 12px;
 }
 
 button {
     border: 0;
-    border-radius: 10px;
+    border-radius: 14px;
     min-height: 48px;
-    padding: 0 14px;
+    padding: 0 16px;
     font-size: 16px;
     color: #fff;
-    background: #2b2b2b;
+    background: var(--card);
     touch-action: manipulation;
 }
 
 button:disabled {
-    opacity: 0.4;
+    opacity: 0.35;
 }
 
 .btn-main {
-    background: var(--red);
-    flex: 1 1 160px;
+    background: linear-gradient(180deg, #ff7466 0%, var(--accent) 100%);
+    flex: 1 1 150px;
     font-weight: 700;
+    box-shadow: 0 8px 20px rgba(255, 90, 79, 0.25);
+}
+
+.file-btn-sub {
+    background: var(--card);
+    flex: 1 1 120px;
+    border: 1px solid var(--line);
 }
 
 .btn-ok {
-    background: var(--ok);
+    background: linear-gradient(180deg, #4fd0a1 0%, var(--ok) 100%);
     flex: 1 1 140px;
+    font-weight: 700;
+}
+
+.btn-ghost {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: #d7dee8;
+    flex: 1 1 90px;
 }
 
 .thumb-list {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin: 12px 0;
+    gap: 10px;
 }
 
 .thumb-card {
     position: relative;
-    background: #000;
-    border-radius: 8px;
+    background: #0b0f14;
+    border-radius: 14px;
     overflow: hidden;
+    border: 1px solid var(--line);
 }
 
 .thumb-card img {
@@ -143,8 +176,8 @@ button:disabled {
 
 .thumb-cap {
     font-size: 12px;
-    padding: 4px 6px;
-    color: #eee;
+    padding: 6px 8px;
+    color: #e8eef6;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -152,24 +185,35 @@ button:disabled {
 
 .thumb-del {
     position: absolute;
-    top: 4px;
-    right: 4px;
+    top: 6px;
+    right: 6px;
     min-height: 28px;
     padding: 0 8px;
     font-size: 12px;
-    background: rgba(0, 0, 0, 0.65);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.log-wrap {
+    margin-top: 18px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.log-wrap summary {
+    cursor: pointer;
+    padding: 6px 0;
 }
 
 .log-box {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 8px;
-    min-height: 88px;
-    max-height: 160px;
+    border-radius: 12px;
+    max-height: 140px;
     overflow: auto;
     padding: 8px 10px;
     font-size: 12px;
-    color: #cfcfcf;
+    color: #c5d0dc;
     line-height: 1.45;
 }
 
@@ -179,18 +223,18 @@ button:disabled {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin: 8px 0;
+    margin: 0 0 10px;
 }
 
 .text-row input {
     flex: 1 1 160px;
-    min-height: 48px;
-    border-radius: 10px;
+    min-height: 50px;
+    border-radius: 14px;
     border: 1px solid var(--line);
-    background: #000;
+    background: var(--card);
     color: #fff;
     font-size: 18px;
-    padding: 0 10px;
+    padding: 0 12px;
 }
 
 .text-row.is-disabled {
@@ -198,12 +242,13 @@ button:disabled {
 }
 
 .editor-wrap {
-    background: #000;
-    border-radius: 8px;
+    background: #080b10;
+    border-radius: 16px;
     display: flex;
     justify-content: center;
     overflow: auto;
     touch-action: none;
+    border: 1px solid var(--line);
 }
 
 #editorCanvas {
@@ -216,29 +261,45 @@ button:disabled {
 }
 
 .color-dot {
-    width: 42px;
-    min-height: 42px;
+    width: 36px;
+    min-height: 36px;
     border-radius: 50%;
     padding: 0;
 }
 
+.sticky-actions {
+    margin-top: 12px;
+}
+
 .collage-preview {
     width: 100%;
-    border-radius: 8px;
+    border-radius: 16px;
     background: #000;
     display: block;
 }
 
 .save-sheet {
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    top: 0;
-    background: rgba(0, 0, 0, 0.88);
+    inset: 0;
+    background: rgba(8, 10, 14, 0.88);
     padding: 16px 12px;
     overflow: auto;
     z-index: 20;
+}
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%);
+    background: rgba(26, 34, 44, 0.96);
+    border: 1px solid var(--line);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 14px;
+    z-index: 30;
+    white-space: nowrap;
 }
 
 [hidden] {

@@ -6,20 +6,20 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="样品拼图">
-    <meta name="theme-color" content="#121212">
+    <meta name="theme-color" content="#0f1419">
     
     
     <title>样品拍照拼图</title>
     <style>
-/* 车间手机页：大按钮、深色底、少装饰，戴手套也能点到 */
+/* 车间手机页：大按钮、深色卡片，戴手套也能点 */
 :root {
-    --bg: #121212;
-    --card: #1d1d1d;
-    --text: #f3f3f3;
-    --muted: #b5b5b5;
-    --red: #e53935;
-    --line: #333;
-    --ok: #2e7d32;
+    --bg: #0f1419;
+    --card: #1a222c;
+    --text: #f4f7fb;
+    --muted: #8b98a8;
+    --accent: #ff5a4f;
+    --ok: #3db88a;
+    --line: rgba(255, 255, 255, 0.08);
 }
 
 * {
@@ -30,58 +30,81 @@ html,
 body {
     margin: 0;
     padding: 0;
-    background: var(--bg);
+    background: radial-gradient(1200px 500px at 50% -120px, #243044 0%, var(--bg) 55%);
     color: var(--text);
-    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+        "Microsoft YaHei", "Noto Sans SC", sans-serif;
 }
 
 body {
     max-width: 720px;
     margin: 0 auto;
     min-height: 100vh;
-    padding: 12px 12px 24px;
+    padding: 16px 16px 28px;
 }
 
-.ios-bar {
-    background: #1e3a5f;
-    color: #fff;
+.banner {
     padding: 10px 12px;
-    border-radius: 8px;
+    border-radius: 12px;
     margin-bottom: 10px;
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.45;
 }
 
-.wechat-bar {
-    background: #7a1f1f;
-    color: #fff;
-    padding: 10px 12px;
-    border-radius: 8px;
-    margin-bottom: 10px;
-    font-size: 14px;
-    line-height: 1.45;
+.banner-warn {
+    background: rgba(255, 90, 79, 0.16);
+    color: #ffd2ce;
+}
+
+.banner-info {
+    background: rgba(90, 158, 255, 0.16);
+    color: #cfe3ff;
+}
+
+.top {
+    margin: 6px 0 16px;
 }
 
 h1 {
-    font-size: 20px;
-    margin: 8px 0 4px;
+    font-size: 24px;
+    letter-spacing: 0.04em;
+    margin: 0 0 4px;
 }
 
-.hint,
-.status {
+.status,
+.hint {
     color: var(--muted);
     font-size: 13px;
     line-height: 1.5;
-    margin: 0 0 10px;
+    margin: 0;
 }
 
-/* 输入框铺满按钮。百度/UC 不吃「代码代点」，必须手指直接点到 input */
+.progress {
+    margin-top: 12px;
+    height: 6px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.progress i {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #ff7a45, var(--accent));
+    transition: width 0.25s ease;
+}
+
 .file-btn {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    min-height: 52px;
+    border-radius: 14px;
+    font-size: 16px;
 }
 
 .file-btn input {
@@ -90,61 +113,71 @@ h1 {
     top: 0;
     width: 100%;
     height: 100%;
-    /* 苹果 Safari 对 opacity:0 的文件框有时点不到，留一点透明度 */
     opacity: 0.01;
     font-size: 80px;
 }
 
-.file-btn-sub {
-    background: #2b2b2b;
-    flex: 1 1 120px;
-}
-
+.hero-btns,
 .btn-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin: 10px 0;
+    gap: 10px;
+    margin: 0 0 12px;
 }
 
 button {
     border: 0;
-    border-radius: 10px;
+    border-radius: 14px;
     min-height: 48px;
-    padding: 0 14px;
+    padding: 0 16px;
     font-size: 16px;
     color: #fff;
-    background: #2b2b2b;
+    background: var(--card);
     touch-action: manipulation;
 }
 
 button:disabled {
-    opacity: 0.4;
+    opacity: 0.35;
 }
 
 .btn-main {
-    background: var(--red);
-    flex: 1 1 160px;
+    background: linear-gradient(180deg, #ff7466 0%, var(--accent) 100%);
+    flex: 1 1 150px;
     font-weight: 700;
+    box-shadow: 0 8px 20px rgba(255, 90, 79, 0.25);
+}
+
+.file-btn-sub {
+    background: var(--card);
+    flex: 1 1 120px;
+    border: 1px solid var(--line);
 }
 
 .btn-ok {
-    background: var(--ok);
+    background: linear-gradient(180deg, #4fd0a1 0%, var(--ok) 100%);
     flex: 1 1 140px;
+    font-weight: 700;
+}
+
+.btn-ghost {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: #d7dee8;
+    flex: 1 1 90px;
 }
 
 .thumb-list {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin: 12px 0;
+    gap: 10px;
 }
 
 .thumb-card {
     position: relative;
-    background: #000;
-    border-radius: 8px;
+    background: #0b0f14;
+    border-radius: 14px;
     overflow: hidden;
+    border: 1px solid var(--line);
 }
 
 .thumb-card img {
@@ -156,8 +189,8 @@ button:disabled {
 
 .thumb-cap {
     font-size: 12px;
-    padding: 4px 6px;
-    color: #eee;
+    padding: 6px 8px;
+    color: #e8eef6;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -165,24 +198,35 @@ button:disabled {
 
 .thumb-del {
     position: absolute;
-    top: 4px;
-    right: 4px;
+    top: 6px;
+    right: 6px;
     min-height: 28px;
     padding: 0 8px;
     font-size: 12px;
-    background: rgba(0, 0, 0, 0.65);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.log-wrap {
+    margin-top: 18px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.log-wrap summary {
+    cursor: pointer;
+    padding: 6px 0;
 }
 
 .log-box {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 8px;
-    min-height: 88px;
-    max-height: 160px;
+    border-radius: 12px;
+    max-height: 140px;
     overflow: auto;
     padding: 8px 10px;
     font-size: 12px;
-    color: #cfcfcf;
+    color: #c5d0dc;
     line-height: 1.45;
 }
 
@@ -192,18 +236,18 @@ button:disabled {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin: 8px 0;
+    margin: 0 0 10px;
 }
 
 .text-row input {
     flex: 1 1 160px;
-    min-height: 48px;
-    border-radius: 10px;
+    min-height: 50px;
+    border-radius: 14px;
     border: 1px solid var(--line);
-    background: #000;
+    background: var(--card);
     color: #fff;
     font-size: 18px;
-    padding: 0 10px;
+    padding: 0 12px;
 }
 
 .text-row.is-disabled {
@@ -211,12 +255,13 @@ button:disabled {
 }
 
 .editor-wrap {
-    background: #000;
-    border-radius: 8px;
+    background: #080b10;
+    border-radius: 16px;
     display: flex;
     justify-content: center;
     overflow: auto;
     touch-action: none;
+    border: 1px solid var(--line);
 }
 
 #editorCanvas {
@@ -229,29 +274,45 @@ button:disabled {
 }
 
 .color-dot {
-    width: 42px;
-    min-height: 42px;
+    width: 36px;
+    min-height: 36px;
     border-radius: 50%;
     padding: 0;
 }
 
+.sticky-actions {
+    margin-top: 12px;
+}
+
 .collage-preview {
     width: 100%;
-    border-radius: 8px;
+    border-radius: 16px;
     background: #000;
     display: block;
 }
 
 .save-sheet {
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    top: 0;
-    background: rgba(0, 0, 0, 0.88);
+    inset: 0;
+    background: rgba(8, 10, 14, 0.88);
     padding: 16px 12px;
     overflow: auto;
     z-index: 20;
+}
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%);
+    background: rgba(26, 34, 44, 0.96);
+    border: 1px solid var(--line);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 14px;
+    z-index: 30;
+    white-space: nowrap;
 }
 
 [hidden] {
@@ -261,41 +322,45 @@ button:disabled {
 </style>
 </head>
 <body>
-    <div id="wechatBar" class="wechat-bar" hidden>
-        当前在微信里打开，照片会被压糊。苹果请点右上角「···」→「在 Safari 中打开」。安卓请用百度浏览器打开。
+    <div id="wechatBar" class="banner banner-warn" hidden>
+        请勿在微信内拍照。苹果选「在 Safari 中打开」，安卓用百度浏览器。
     </div>
-    <div id="chromeBar" class="wechat-bar" hidden>
-        请改用百度浏览器打开（夸克、UC、手机自带浏览器也可以）。不要用 Chrome。
+    <div id="chromeBar" class="banner banner-warn" hidden>
+        请改用百度、夸克或手机自带浏览器，不要用 Chrome。
     </div>
-    <div id="iosBar" class="ios-bar" hidden>
-        苹果请用 Safari 打开本页（不要用微信）。点底部分享 →「添加到主屏幕」后，以后当应用用。
+    <div id="iosBar" class="banner banner-info" hidden>
+        点底部分享 → 添加到主屏幕，以后直接从桌面打开。
     </div>
 
-    <h1>样品拍照拼图</h1>
-    <p class="hint">苹果用 Safari，安卓用百度。点「拍照」调系统相机，写完型号再保存。满 9 张自动拼。</p>
-    <p id="statusText" class="status">本批 0 / 9 张</p>
+    <header class="top">
+        <div>
+            <h1>样品拼图</h1>
+            <p id="statusText" class="status">本批 0 / 9</p>
+        </div>
+        <div id="progressBar" class="progress"><i id="progressFill"></i></div>
+    </header>
 
     <section id="homeView">
-        <div class="btn-row">
+        <div class="hero-btns">
             <label class="btn-main file-btn">
                 拍照
                 <input id="fileShot" type="file" accept="image/*" capture="environment">
             </label>
             <label class="file-btn file-btn-sub">
-                从相册导入（可多选）
+                相册多选
                 <input id="fileAlbum" type="file" accept="image/*" multiple>
             </label>
         </div>
         <div class="btn-row">
-            <button id="btnEarlyCollage" type="button" disabled>提前拼图</button>
-            <button id="btnClear" type="button">清空缓存</button>
+            <button id="btnEarlyCollage" class="btn-ghost" type="button" disabled>拼图</button>
+            <button id="btnClear" class="btn-ghost" type="button">清空</button>
         </div>
         <div id="thumbList" class="thumb-list"></div>
     </section>
 
     <section id="editorView" hidden>
         <div class="text-row">
-            <input id="textInput" type="text" inputmode="text" placeholder="先写型号，例如 20X-E1，再点照片贴上">
+            <input id="textInput" type="text" inputmode="text" placeholder="型号，例如 20X-E1">
         </div>
         <div class="editor-tools">
             <button id="toolText" data-tool="text" type="button">文字</button>
@@ -304,37 +369,41 @@ button:disabled {
             <button id="btnUndo" type="button">撤销</button>
         </div>
         <div id="colorRow" class="color-row">
-            <button class="color-dot is-active" data-color="#e53935" style="background:#e53935" type="button"></button>
+            <button class="color-dot is-active" data-color="#ff4d4f" style="background:#ff4d4f" type="button"></button>
             <button class="color-dot" data-color="#ffffff" style="background:#ffffff" type="button"></button>
-            <button class="color-dot" data-color="#f9a825" style="background:#f9a825" type="button"></button>
+            <button class="color-dot" data-color="#ffd666" style="background:#ffd666" type="button"></button>
         </div>
         <div class="editor-wrap">
             <canvas id="editorCanvas"></canvas>
         </div>
-        <div class="btn-row">
-            <button id="btnSaveEdit" class="btn-ok" type="button">保存到相册并加入拼图</button>
-            <button id="btnCancelEdit" type="button">取消</button>
+        <div class="btn-row sticky-actions">
+            <button id="btnSaveEdit" class="btn-ok" type="button">完成</button>
+            <button id="btnCancelEdit" class="btn-ghost" type="button">跳过</button>
         </div>
     </section>
 
     <section id="collageView" hidden>
-        <p class="hint">核对型号和缺陷圈是否还清楚，再保存。发微信请勾选「原图」。</p>
         <img id="collagePreview" class="collage-preview" alt="拼图预览">
         <div class="btn-row">
-            <button id="btnSaveCollage" class="btn-ok" type="button">保存拼图到相册</button>
-            <button id="btnBackHome" type="button">返回改图</button>
+            <button id="btnSaveCollage" class="btn-ok" type="button">保存拼图</button>
+            <button id="btnBackHome" class="btn-ghost" type="button">返回</button>
         </div>
     </section>
 
     <div id="saveSheet" class="save-sheet" hidden>
-        <p id="saveSheetHint" class="hint">苹果手机请长按下面这张图 → 存储图像。安卓一般会直接下载。</p>
+        <p id="saveSheetHint" class="hint"></p>
         <img id="saveSheetImg" class="collage-preview" alt="待保存图片">
         <div class="btn-row">
-            <button id="btnCloseSheet" class="btn-ok" type="button">已保存，关闭</button>
+            <button id="btnCloseSheet" class="btn-ok" type="button">关闭</button>
         </div>
     </div>
 
-    <div id="logBox" class="log-box"></div>
+    <details class="log-wrap">
+        <summary>运行记录</summary>
+        <div id="logBox" class="log-box"></div>
+    </details>
+
+    <div id="toast" class="toast" hidden></div>
 
     <script>
 /**
@@ -1070,11 +1139,30 @@ window.APP_CONFIG = {
             return Math.max(3, image.naturalWidth * CONFIG.LINE_WIDTH_RATIO);
         }
 
+        function hasTextMark() {
+            for (let i = 0; i < marks.length; i += 1) {
+                if (marks[i].type === "text") {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /**
-         * 贴上型号文字。点画布时调用。
+         * 写了型号但没点照片时，自动贴到画面上方，少点一次。
          * @param {string} text
-         * @param {{x:number,y:number}} point
+         * @returns {boolean}
          */
+        function ensureSampleText(text) {
+            if (hasTextMark()) {
+                return true;
+            }
+            return addText(text, {
+                x: image.naturalWidth * 0.16,
+                y: image.naturalHeight * 0.3,
+            });
+        }
+
         function addText(text, point) {
             const value = (text || "").trim();
             if (!value) {
@@ -1214,6 +1302,8 @@ window.APP_CONFIG = {
             setTool: setTool,
             setColor: setColor,
             addText: addText,
+            ensureSampleText: ensureSampleText,
+            hasTextMark: hasTextMark,
             undo: undo,
             exportDataUrl: exportDataUrl,
             fitCanvas: fitCanvas,
@@ -1331,7 +1421,9 @@ window.APP_CONFIG = {
         iosBar: $("iosBar"),
         chromeBar: $("chromeBar"),
         statusText: $("statusText"),
+        progressFill: $("progressFill"),
         logBox: $("logBox"),
+        toast: $("toast"),
         homeView: $("homeView"),
         editorView: $("editorView"),
         collageView: $("collageView"),
@@ -1372,9 +1464,28 @@ window.APP_CONFIG = {
      * @param {string} dataUrl
      */
     function showSaveSheet(dataUrl) {
+        if (!els.saveSheet) {
+            return;
+        }
         els.saveSheetImg.src = dataUrl;
         els.saveSheetHint.textContent = window.PhotoSave.saveHint();
         els.saveSheet.hidden = false;
+    }
+
+    /**
+     * 底部短提示，替代每次全屏长按保存。
+     * @param {string} message
+     */
+    function showToast(message) {
+        if (!els.toast) {
+            return;
+        }
+        els.toast.textContent = message;
+        els.toast.hidden = false;
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(function () {
+            els.toast.hidden = true;
+        }, 2200);
     }
 
     function logLine(message) {
@@ -1414,8 +1525,11 @@ window.APP_CONFIG = {
                 return item.batchId === currentBatchId && !item.isCollage;
             });
             const n = batchPhotos.length;
-            els.statusText.textContent =
-                "本批 " + n + " / " + CONFIG.BATCH_SIZE + " 张（批次 " + currentBatchId + "）";
+            els.statusText.textContent = "本批 " + n + " / " + CONFIG.BATCH_SIZE;
+            if (els.progressFill) {
+                els.progressFill.style.width =
+                    Math.min(100, (n / CONFIG.BATCH_SIZE) * 100) + "%";
+            }
             els.btnEarlyCollage.disabled = n < 1;
             els.thumbList.innerHTML = "";
 
@@ -1560,9 +1674,12 @@ window.APP_CONFIG = {
             });
             return window.PhotoCollage.buildCollage(urls).then(function (dataUrl) {
                 pendingCollageUrl = dataUrl;
-                els.collagePreview.src = dataUrl;
-                showView("collage");
-                logLine("拼图已生成，请再点一次「保存拼图到相册」");
+                if (els.collagePreview) {
+                    els.collagePreview.src = dataUrl;
+                }
+                logLine("拼图已生成，正在保存");
+                // 不再让产线再点一次「保存拼图」
+                return saveCollageAndRotateBatch();
             });
         });
     }
@@ -1576,6 +1693,9 @@ window.APP_CONFIG = {
             return;
         }
         const sampleId = (els.textInput.value || "").trim();
+        if (sampleId && editor.ensureSampleText) {
+            editor.ensureSampleText(sampleId);
+        }
         let dataUrl;
         try {
             dataUrl = editor.exportDataUrl();
@@ -1608,16 +1728,13 @@ window.APP_CONFIG = {
             })
             .then(function () {
                 logLine("细节图已保存" + (sampleId ? "（" + sampleId + "）" : ""));
+                showToast("已保存" + (sampleId ? " " + sampleId : ""));
                 if (editor && editor.destroy) {
                     editor.destroy();
                 }
                 editor = null;
                 editorImage = null;
                 showView("home");
-                // 队列里还有图时先不挡长按保存层，避免打断连标
-                if (!importQueue.length) {
-                    showSaveSheet(dataUrl);
-                }
                 return refreshHome();
             })
             .then(function (batchPhotos) {
@@ -1660,7 +1777,7 @@ window.APP_CONFIG = {
             })
             .then(function () {
                 logLine("拼图已保存，开始下一批");
-                showSaveSheet(pendingCollageUrl);
+                showToast("拼图已保存");
                 pendingCollageUrl = "";
                 currentBatchId = window.PhotoStorage.makeBatchId();
                 showView("home");

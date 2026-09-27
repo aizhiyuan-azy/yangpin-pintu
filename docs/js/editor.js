@@ -152,11 +152,30 @@
             return Math.max(3, image.naturalWidth * CONFIG.LINE_WIDTH_RATIO);
         }
 
+        function hasTextMark() {
+            for (let i = 0; i < marks.length; i += 1) {
+                if (marks[i].type === "text") {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /**
-         * 贴上型号文字。点画布时调用。
+         * 写了型号但没点照片时，自动贴到画面上方，少点一次。
          * @param {string} text
-         * @param {{x:number,y:number}} point
+         * @returns {boolean}
          */
+        function ensureSampleText(text) {
+            if (hasTextMark()) {
+                return true;
+            }
+            return addText(text, {
+                x: image.naturalWidth * 0.16,
+                y: image.naturalHeight * 0.3,
+            });
+        }
+
         function addText(text, point) {
             const value = (text || "").trim();
             if (!value) {
@@ -296,6 +315,8 @@
             setTool: setTool,
             setColor: setColor,
             addText: addText,
+            ensureSampleText: ensureSampleText,
+            hasTextMark: hasTextMark,
             undo: undo,
             exportDataUrl: exportDataUrl,
             fitCanvas: fitCanvas,

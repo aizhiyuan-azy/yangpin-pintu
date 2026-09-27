@@ -6,48 +6,52 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="样品拼图">
-    <meta name="theme-color" content="#121212">
+    <meta name="theme-color" content="#0f1419">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icon.png">
     <title>样品拍照拼图</title>
     <link rel="stylesheet" href="app.css">
 </head>
 <body>
-    <div id="wechatBar" class="wechat-bar" hidden>
-        当前在微信里打开，照片会被压糊。苹果请点右上角「···」→「在 Safari 中打开」。安卓请用百度浏览器打开。
+    <div id="wechatBar" class="banner banner-warn" hidden>
+        请勿在微信内拍照。苹果选「在 Safari 中打开」，安卓用百度浏览器。
     </div>
-    <div id="chromeBar" class="wechat-bar" hidden>
-        请改用百度浏览器打开（夸克、UC、手机自带浏览器也可以）。不要用 Chrome。
+    <div id="chromeBar" class="banner banner-warn" hidden>
+        请改用百度、夸克或手机自带浏览器，不要用 Chrome。
     </div>
-    <div id="iosBar" class="ios-bar" hidden>
-        苹果请用 Safari 打开本页（不要用微信）。点底部分享 →「添加到主屏幕」后，以后当应用用。
+    <div id="iosBar" class="banner banner-info" hidden>
+        点底部分享 → 添加到主屏幕，以后直接从桌面打开。
     </div>
 
-    <h1>样品拍照拼图</h1>
-    <p class="hint">苹果用 Safari，安卓用百度。点「拍照」调系统相机，写完型号再保存。满 9 张自动拼。</p>
-    <p id="statusText" class="status">本批 0 / 9 张</p>
+    <header class="top">
+        <div>
+            <h1>样品拼图</h1>
+            <p id="statusText" class="status">本批 0 / 9</p>
+        </div>
+        <div id="progressBar" class="progress"><i id="progressFill"></i></div>
+    </header>
 
     <section id="homeView">
-        <div class="btn-row">
+        <div class="hero-btns">
             <label class="btn-main file-btn">
                 拍照
                 <input id="fileShot" type="file" accept="image/*" capture="environment">
             </label>
             <label class="file-btn file-btn-sub">
-                从相册导入（可多选）
+                相册多选
                 <input id="fileAlbum" type="file" accept="image/*" multiple>
             </label>
         </div>
         <div class="btn-row">
-            <button id="btnEarlyCollage" type="button" disabled>提前拼图</button>
-            <button id="btnClear" type="button">清空缓存</button>
+            <button id="btnEarlyCollage" class="btn-ghost" type="button" disabled>拼图</button>
+            <button id="btnClear" class="btn-ghost" type="button">清空</button>
         </div>
         <div id="thumbList" class="thumb-list"></div>
     </section>
 
     <section id="editorView" hidden>
         <div class="text-row">
-            <input id="textInput" type="text" inputmode="text" placeholder="先写型号，例如 20X-E1，再点照片贴上">
+            <input id="textInput" type="text" inputmode="text" placeholder="型号，例如 20X-E1">
         </div>
         <div class="editor-tools">
             <button id="toolText" data-tool="text" type="button">文字</button>
@@ -56,37 +60,41 @@
             <button id="btnUndo" type="button">撤销</button>
         </div>
         <div id="colorRow" class="color-row">
-            <button class="color-dot is-active" data-color="#e53935" style="background:#e53935" type="button"></button>
+            <button class="color-dot is-active" data-color="#ff4d4f" style="background:#ff4d4f" type="button"></button>
             <button class="color-dot" data-color="#ffffff" style="background:#ffffff" type="button"></button>
-            <button class="color-dot" data-color="#f9a825" style="background:#f9a825" type="button"></button>
+            <button class="color-dot" data-color="#ffd666" style="background:#ffd666" type="button"></button>
         </div>
         <div class="editor-wrap">
             <canvas id="editorCanvas"></canvas>
         </div>
-        <div class="btn-row">
-            <button id="btnSaveEdit" class="btn-ok" type="button">保存到相册并加入拼图</button>
-            <button id="btnCancelEdit" type="button">取消</button>
+        <div class="btn-row sticky-actions">
+            <button id="btnSaveEdit" class="btn-ok" type="button">完成</button>
+            <button id="btnCancelEdit" class="btn-ghost" type="button">跳过</button>
         </div>
     </section>
 
     <section id="collageView" hidden>
-        <p class="hint">核对型号和缺陷圈是否还清楚，再保存。发微信请勾选「原图」。</p>
         <img id="collagePreview" class="collage-preview" alt="拼图预览">
         <div class="btn-row">
-            <button id="btnSaveCollage" class="btn-ok" type="button">保存拼图到相册</button>
-            <button id="btnBackHome" type="button">返回改图</button>
+            <button id="btnSaveCollage" class="btn-ok" type="button">保存拼图</button>
+            <button id="btnBackHome" class="btn-ghost" type="button">返回</button>
         </div>
     </section>
 
     <div id="saveSheet" class="save-sheet" hidden>
-        <p id="saveSheetHint" class="hint">苹果手机请长按下面这张图 → 存储图像。安卓一般会直接下载。</p>
+        <p id="saveSheetHint" class="hint"></p>
         <img id="saveSheetImg" class="collage-preview" alt="待保存图片">
         <div class="btn-row">
-            <button id="btnCloseSheet" class="btn-ok" type="button">已保存，关闭</button>
+            <button id="btnCloseSheet" class="btn-ok" type="button">关闭</button>
         </div>
     </div>
 
-    <div id="logBox" class="log-box"></div>
+    <details class="log-wrap">
+        <summary>运行记录</summary>
+        <div id="logBox" class="log-box"></div>
+    </details>
+
+    <div id="toast" class="toast" hidden></div>
 
     <script src="js/config.js"></script>
     <script src="js/storage.js"></script>
