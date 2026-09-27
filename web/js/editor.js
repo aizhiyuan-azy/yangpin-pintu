@@ -190,6 +190,7 @@
                 fontSize: defaultFontSize(),
             });
             redraw();
+            notifyMarksChanged();
             return true;
         }
 
@@ -208,6 +209,14 @@
                 marks.pop();
             }
             redraw();
+            notifyMarksChanged();
+        }
+
+        /**
+         * 标注有变动，外面立刻把图存进本地库，不用等点「完成」。
+         */
+        function notifyMarksChanged() {
+            canvas.dispatchEvent(new CustomEvent("marks-changed"));
         }
 
         /**
@@ -291,6 +300,7 @@
             marks.push(drawing);
             drawing = null;
             redraw();
+            notifyMarksChanged();
         }
 
         canvas.addEventListener("pointerdown", onPointerDown);
@@ -328,6 +338,107 @@
     }
 
     /**
+     * 按最长边算出缩小后的宽高。不超过上限就不缩。
+     * @param {number} width
+     * @param {number} height
+     * @param {number} maxEdge
+     * @returns {{width: number, height: number, scale: number}}
+     */
+    function fitWithinMaxEdge(width, height, maxEdge) {
+        const w = Math.max(1, width || 0);
+        const h = Math.max(1, height || 0);
+        const cap = Math.max(1, maxEdge || 1280);
+        const longSide = Math.max(w, h);
+        if (longSide <= cap) {
+            return { width: w, height: h, scale: 1 };
+        }
+        const scale = cap / longSide;
+        return {
+            width: Math.max(1, Math.round(w * scale)),
+            height: Math.max(1, Math.round(h * scale)),
+            scale: scale,
+        };
+    }
+
+    /**
+     * 把画布压成 JPEG，再读回 Image。失败时把原因抛出去。
+     * @param {HTMLCanvasElement} canvas
+     * @param {number} quality
+     * @returns {Promise<HTMLImageElement>}
+     */
+    function canvasToJpegImage(canvas, quality) {
+        const q = typeof quality === "number" ? quality : CONFIG.JPEG_QUALITY;
+        return new Promise(function (resolve, reject) {
+            if (canvas.toBlob) {
+                canvas.toBlob(
+                    function (blob) {
+                        if (!blob) {
+                            reject(new Error("压缩照片失败"));
+                            return;
+                        }
+                        loadByObjectUrl(blob).then(resolve).catch(reject);
+                    },
+                    "image/jpeg",
+                    q
+                );
+                return;
+            }
+            try {
+                const dataUrl = canvas.toDataURL("image/jpeg", q);
+                if (!dataUrl || dataUrl.length < 100) {
+                    reject(new Error("压缩照片失败"));
+                    return;
+                }
+                const image = new Image();
+                image.onload = function () {
+                    if (!image.naturalWidth) {
+                        reject(new Error("压缩后的照片是空的"));
+                        return;
+                    }
+                    resolve(image);
+                };
+                image.onerror = function () {
+                    reject(new Error("压缩后的照片打不开"));
+                };
+                image.src = dataUrl;
+            } catch (err) {
+                reject(err || new Error("压缩照片失败"));
+            }
+        });
+    }
+
+    /**
+     * 单张图超过最长边就缩小，并按配置质量重压 JPEG。
+     * 原图解码逻辑还在，这一步只是读入后立刻降内存。
+     * @param {HTMLImageElement} image
+     * @returns {Promise<HTMLImageElement>}
+     */
+    function shrinkImageIfNeeded(image) {
+        if (!image || !image.naturalWidth || !image.naturalHeight) {
+            return Promise.reject(new Error("照片读出来是空的，请重拍"));
+        }
+        const fit = fitWithinMaxEdge(
+            image.naturalWidth,
+            image.naturalHeight,
+            CONFIG.PHOTO_MAX_EDGE
+        );
+        const canvas = document.createElement("canvas");
+        canvas.width = fit.width;
+        canvas.height = fit.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            return Promise.resolve(image);
+        }
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(image, 0, 0, fit.width, fit.height);
+        return canvasToJpegImage(canvas, CONFIG.JPEG_QUALITY).catch(function () {
+            // 压缩失败不打断拍照，继续用已解码的图
+            return image;
+        });
+    }
+
+    /**
      * 用原文件直接解码成 Image（不再压一遍）。
      * @param {File} file
      * @returns {Promise<HTMLImageElement>}
@@ -353,39 +464,38 @@
     }
 
     /**
-     * 少数浏览器会把 Image 缩得很小；用相机原像素的 Bitmap 兜底。
+     * 少数浏览器会把 Image 缩得很小；用 Bitmap 兜底。
+     * 画到画布时就按最长边缩小，避免先建一张超大原图像素。
      * @param {ImageBitmap} bitmap
      * @returns {Promise<HTMLImageElement>}
      */
     function imageFromBitmap(bitmap) {
+        const fit = fitWithinMaxEdge(
+            bitmap.width,
+            bitmap.height,
+            CONFIG.PHOTO_MAX_EDGE
+        );
         const canvas = document.createElement("canvas");
-        canvas.width = bitmap.width;
-        canvas.height = bitmap.height;
+        canvas.width = fit.width;
+        canvas.height = fit.height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
             bitmap.close();
             return Promise.reject(new Error("无法按原像素解码"));
         }
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(bitmap, 0, 0);
+        // 需要缩小时才开平滑；1:1 仍关闭，避免无谓模糊
+        ctx.imageSmoothingEnabled = fit.scale < 1;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(bitmap, 0, 0, fit.width, fit.height);
         bitmap.close();
-        return new Promise(function (resolve, reject) {
-            canvas.toBlob(
-                function (blob) {
-                    if (!blob) {
-                        reject(new Error("原像素转存失败"));
-                        return;
-                    }
-                    loadByObjectUrl(blob).then(resolve).catch(reject);
-                },
-                "image/jpeg",
-                CONFIG.JPEG_QUALITY
-            );
+        return canvasToJpegImage(canvas, CONFIG.JPEG_QUALITY).catch(function () {
+            return Promise.reject(new Error("原像素转存失败"));
         });
     }
 
     /**
-     * 把文件读成 Image，尽量保留系统相机原分辨率。
+     * 把文件读成 Image。先按原来的方式解码（必要时用 Bitmap 纠正方向），
+     * 最后再缩到 PHOTO_MAX_EDGE，降低单张占用的内存。
      * @param {File} file
      * @returns {Promise<HTMLImageElement>}
      */
@@ -393,25 +503,27 @@
         if (!file) {
             return Promise.reject(new Error("没有选到照片"));
         }
-        return loadByObjectUrl(file).then(function (image) {
-            if (!window.createImageBitmap) {
-                return image;
-            }
-            return createImageBitmap(file, { imageOrientation: "from-image" })
-                .then(function (bitmap) {
-                    const bigger =
-                        bitmap.width > image.naturalWidth ||
-                        bitmap.height > image.naturalHeight;
-                    if (bigger) {
-                        return imageFromBitmap(bitmap);
-                    }
-                    bitmap.close();
+        return loadByObjectUrl(file)
+            .then(function (image) {
+                if (!window.createImageBitmap) {
                     return image;
-                })
-                .catch(function () {
-                    return image;
-                });
-        });
+                }
+                return createImageBitmap(file, { imageOrientation: "from-image" })
+                    .then(function (bitmap) {
+                        const bigger =
+                            bitmap.width > image.naturalWidth ||
+                            bitmap.height > image.naturalHeight;
+                        if (bigger) {
+                            return imageFromBitmap(bitmap);
+                        }
+                        bitmap.close();
+                        return image;
+                    })
+                    .catch(function () {
+                        return image;
+                    });
+            })
+            .then(shrinkImageIfNeeded);
     }
 
     global.PhotoEditor = {

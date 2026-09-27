@@ -167,6 +167,7 @@ button {
 .file-btn {
     position: relative;
     overflow: hidden;
+    cursor: pointer;
 }
 
 .file-btn input {
@@ -175,8 +176,12 @@ button {
     top: 0;
     width: 100%;
     height: 100%;
-    opacity: 0.01;
-    font-size: 80px;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 2;
 }
 
 button:disabled {
@@ -325,10 +330,15 @@ button:disabled {
 }
 
 .collage-preview {
-    width: 100%;
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+    margin: 0 auto;
     border-radius: 18px;
     background: #fff;
-    display: block;
 }
 
 .save-sheet {
@@ -432,11 +442,12 @@ button:disabled {
     </div>
 
     <section id="collageView" hidden>
-        <img id="collagePreview" class="collage-preview" alt="拼图预览">
         <div class="btn-row">
             <button id="btnSaveCollage" class="btn-ok" type="button">保存拼图</button>
             <button id="btnBackHome" class="btn-ghost" type="button">返回</button>
         </div>
+        <p id="collageCount" class="status">本页 0 张</p>
+        <img id="collagePreview" class="collage-preview" alt="拼图预览">
     </section>
 
     <div id="saveSheet" class="save-sheet" hidden>
@@ -458,14 +469,20 @@ window.APP_CONFIG = {
     /** 满几张自动拼一张 3×3 */
     BATCH_SIZE: 9,
 
-    /** 单张导出 JPEG 质量，0~1。0.98 接近原相机，再高文件很大、肉眼差不多 */
-    JPEG_QUALITY: 0.98,
+    /** 单张导出 JPEG 质量，0~1。略降可明显减小体积，车间看缺陷仍够用 */
+    JPEG_QUALITY: 0.72,
 
     /**
-     * 拼图每格最长边上限。优先用原图像素，内存不够再自动降。
-     * 细节图始终按相机原分辨率保存，不受这个值影响。
+     * 单张照片最长边上限（像素）。读入后立刻缩到这个边长，再进标注和本地库。
+     * 手机原图常见 4000 边，解码要占几十 MB；缩到 1280 后大约只剩原来的 1/10。
+     * 想更清晰就改大（例如 1600），想更省内存就改小（例如 1024）。
      */
-    COLLAGE_CELL_MAX: 4096,
+    PHOTO_MAX_EDGE: 1280,
+
+    /**
+     * 拼图每格最长边上限。内存不够时拼图流程会再自动往下降。
+     */
+    COLLAGE_CELL_MAX: 1600,
 
     /** 拼图格子缝隙（像素） */
     COLLAGE_GAP: 16,
@@ -491,29 +508,34 @@ window.APP_CONFIG = {
 };
 
 /**
- * 用 IndexedDB 保存本批次标注图，刷新页面也不会丢。
- * 只存已经「完成标注」的图，不存拍摄中的临时数据。
+ * 用 IndexedDB 保存本批次标注图。关掉浏览器、过半小时再来，图还在。
+ * 只存已经「完成标注」的图。只有点「清空」才整批删除。
  */
 (function (global) {
     const CONFIG = global.APP_CONFIG;
     const STORE = "photos";
-    /** 离线单文件（file://）时 IndexedDB 可能不可用，用内存顶上 */
+    const MANIFEST_KEY = CONFIG.BATCH_KEY + "-n";
+    /** 本页临时备份。不能代替本地库，关掉页面就会没 */
     const memoryRows = [];
-    let useMemory = false;
+    /** 这次没写进本地库，关掉会丢，界面要提醒 */
+    let persistWeak = false;
 
     /**
-     * 打开（或创建）本地数据库。
+     * 打开（或创建）本地数据库。每次都试，不因为一次失败就放弃。
      * @returns {Promise<IDBDatabase>}
      */
     function openDb() {
         return new Promise(function (resolve, reject) {
-            if (useMemory || !window.indexedDB) {
-                reject(new Error("改用内存缓存"));
+            if (!window.indexedDB) {
+                reject(new Error("浏览器没有本地库"));
                 return;
             }
             const request = indexedDB.open(CONFIG.DB_NAME, CONFIG.DB_VERSION);
             request.onerror = function () {
                 reject(request.error || new Error("打开本地缓存失败"));
+            };
+            request.onblocked = function () {
+                reject(new Error("本地库被占用"));
             };
             request.onsuccess = function () {
                 resolve(request.result);
@@ -527,6 +549,23 @@ window.APP_CONFIG = {
                 }
             };
         });
+    }
+
+    /**
+     * 向浏览器申请「不要自动清掉这个网页的缓存」。
+     * @returns {Promise<boolean>}
+     */
+    function requestPersist() {
+        try {
+            if (navigator.storage && navigator.storage.persist) {
+                return navigator.storage.persist().catch(function () {
+                    return false;
+                });
+            }
+        } catch (err) {
+            // 旧浏览器没有这个接口
+        }
+        return Promise.resolve(false);
     }
 
     /**
@@ -549,12 +588,37 @@ window.APP_CONFIG = {
     }
 
     /**
-     * 写入一张已标注照片。
-     * @param {Object} photo
-     * @returns {Promise<void>}
+     * 未拼完单图张数，写在 localStorage，用来发现「库被清掉了」。
+     * @param {Array} photos
      */
-    function saveToMemory(photo) {
-        useMemory = true;
+    function writeManifest(photos) {
+        try {
+            const n = (photos || []).filter(function (item) {
+                return !item.isCollage;
+            }).length;
+            localStorage.setItem(MANIFEST_KEY, String(n));
+        } catch (err) {
+            // 无痕模式可能写不了
+        }
+    }
+
+    /**
+     * 上次记住的单图张数。读不到当 0。
+     * @returns {number}
+     */
+    function readManifestCount() {
+        try {
+            return parseInt(localStorage.getItem(MANIFEST_KEY) || "0", 10) || 0;
+        } catch (err) {
+            return 0;
+        }
+    }
+
+    /**
+     * 本页内存里也留一份，仅供本地库暂时打不开时顶上。
+     * @param {Object} photo
+     */
+    function rememberInRam(photo) {
         let found = false;
         for (let i = 0; i < memoryRows.length; i += 1) {
             if (memoryRows[i].id === photo.id) {
@@ -566,57 +630,116 @@ window.APP_CONFIG = {
         if (!found) {
             memoryRows.push(photo);
         }
-        return Promise.resolve();
     }
 
-    function savePhoto(photo) {
-        return openDb().then(function (db) {
-            return new Promise(function (resolve, reject) {
-                const tx = db.transaction(STORE, "readwrite");
-                tx.oncomplete = function () {
-                    resolve();
-                };
-                tx.onerror = function () {
-                    reject(tx.error || new Error("保存照片失败"));
-                };
-                tx.objectStore(STORE).put(photo);
-            });
-        }).catch(function () {
-            return saveToMemory(photo);
+    function sortByTime(rows) {
+        const list = (rows || []).slice();
+        list.sort(function (a, b) {
+            return (a.createdAt || 0) - (b.createdAt || 0);
+        });
+        return list;
+    }
+
+    /**
+     * 从已打开的库读出全部照片。
+     * @param {IDBDatabase} db
+     * @returns {Promise<Array>}
+     */
+    function readAllFromDb(db) {
+        return new Promise(function (resolve, reject) {
+            const tx = db.transaction(STORE, "readonly");
+            const rows = [];
+            const request = tx.objectStore(STORE).openCursor();
+            request.onsuccess = function (event) {
+                const cursor = event.target.result;
+                if (cursor) {
+                    rows.push(cursor.value);
+                    cursor.continue();
+                } else {
+                    resolve(sortByTime(rows));
+                }
+            };
+            request.onerror = function () {
+                reject(request.error || new Error("读取照片失败"));
+            };
         });
     }
 
     /**
-     * 读取全部照片，按时间从旧到新。
+     * 本地库和本页内存合并。库只写出 1 张、后面几张还在内存时，拼图不能只用库里那一张。
+     * @param {Array} dbRows
+     * @param {Array} ramRows
+     * @returns {Array}
+     */
+    function mergeRows(dbRows, ramRows) {
+        const map = {};
+        (dbRows || []).forEach(function (item) {
+            if (item && item.id) {
+                map[item.id] = item;
+            }
+        });
+        (ramRows || []).forEach(function (item) {
+            if (item && item.id) {
+                map[item.id] = item;
+            }
+        });
+        const merged = [];
+        Object.keys(map).forEach(function (key) {
+            merged.push(map[key]);
+        });
+        return sortByTime(merged);
+    }
+
+    /**
+     * 写入一张已标注照片。先写本地库，成功才算记住。
+     * @param {Object} photo
+     * @returns {Promise<void>}
+     */
+    function savePhoto(photo) {
+        rememberInRam(photo);
+        return openDb()
+            .then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    const tx = db.transaction(STORE, "readwrite");
+                    tx.oncomplete = function () {
+                        persistWeak = false;
+                        resolve();
+                    };
+                    tx.onerror = function () {
+                        reject(tx.error || new Error("保存照片失败"));
+                    };
+                    tx.objectStore(STORE).put(photo);
+                }).then(function () {
+                    writeManifest(memoryRows);
+                });
+            })
+            .catch(function () {
+                persistWeak = true;
+                writeManifest(memoryRows);
+                return Promise.resolve();
+            });
+    }
+
+    /**
+     * 读取全部照片，按时间从旧到新。优先本地库，关掉再开也能读到。
      * @returns {Promise<Array>}
      */
     function listPhotos() {
-        if (useMemory) {
-            const rows = memoryRows.slice();
-            rows.sort(function (a, b) {
-                return (a.createdAt || 0) - (b.createdAt || 0);
+        return openDb()
+            .then(function (db) {
+                return readAllFromDb(db).then(function (rows) {
+                    const merged = mergeRows(rows, memoryRows);
+                    if (merged.length) {
+                        persistWeak = merged.length > rows.length;
+                    }
+                    writeManifest(merged);
+                    return merged;
+                });
+            })
+            .catch(function () {
+                persistWeak = memoryRows.length > 0 || persistWeak;
+                return sortByTime(memoryRows);
             });
-            return Promise.resolve(rows);
-        }
-        return openDb().then(function (db) {
-            return new Promise(function (resolve, reject) {
-                const tx = db.transaction(STORE, "readonly");
-                const request = tx.objectStore(STORE).getAll();
-                request.onsuccess = function () {
-                    const rows = request.result || [];
-                    rows.sort(function (a, b) {
-                        return (a.createdAt || 0) - (b.createdAt || 0);
-                    });
-                    resolve(rows);
-                };
-                request.onerror = function () {
-                    reject(request.error || new Error("读取照片失败"));
-                };
-            });
-        }).catch(function () {
-            useMemory = true;
-            return Promise.resolve(memoryRows.slice());
-        });
     }
 
     /**
@@ -625,55 +748,56 @@ window.APP_CONFIG = {
      * @returns {Promise<void>}
      */
     function deletePhoto(photoId) {
-        if (useMemory) {
-            for (let i = memoryRows.length - 1; i >= 0; i -= 1) {
-                if (memoryRows[i].id === photoId) {
-                    memoryRows.splice(i, 1);
-                }
+        for (let i = memoryRows.length - 1; i >= 0; i -= 1) {
+            if (memoryRows[i].id === photoId) {
+                memoryRows.splice(i, 1);
             }
-            return Promise.resolve();
         }
-        return openDb().then(function (db) {
-            return new Promise(function (resolve, reject) {
-                const tx = db.transaction(STORE, "readwrite");
-                tx.oncomplete = function () {
-                    resolve();
-                };
-                tx.onerror = function () {
-                    reject(tx.error || new Error("删除照片失败"));
-                };
-                tx.objectStore(STORE).delete(photoId);
+        return openDb()
+            .then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    const tx = db.transaction(STORE, "readwrite");
+                    tx.oncomplete = function () {
+                        resolve();
+                    };
+                    tx.onerror = function () {
+                        reject(tx.error || new Error("删除照片失败"));
+                    };
+                    tx.objectStore(STORE).delete(photoId);
+                }).then(function () {
+                    writeManifest(memoryRows);
+                });
+            })
+            .catch(function () {
+                writeManifest(memoryRows);
+                return Promise.resolve();
             });
-        }).catch(function () {
-            useMemory = true;
-            return deletePhoto(photoId);
-        });
     }
 
     /**
-     * 清空全部缓存（换班或开始新任务时用）。
+     * 清空全部缓存（只有用户点「清空」时才走这里）。
      * @returns {Promise<void>}
      */
     function clearAll() {
         memoryRows.length = 0;
-        if (useMemory) {
-            return Promise.resolve();
-        }
-        return openDb().then(function (db) {
-            return new Promise(function (resolve, reject) {
-                const tx = db.transaction(STORE, "readwrite");
-                tx.oncomplete = function () {
-                    resolve();
-                };
-                tx.onerror = function () {
-                    reject(tx.error || new Error("清空缓存失败"));
-                };
-                tx.objectStore(STORE).clear();
+        persistWeak = false;
+        writeManifest([]);
+        return openDb()
+            .then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    const tx = db.transaction(STORE, "readwrite");
+                    tx.oncomplete = function () {
+                        resolve();
+                    };
+                    tx.onerror = function () {
+                        reject(tx.error || new Error("清空缓存失败"));
+                    };
+                    tx.objectStore(STORE).clear();
+                });
+            })
+            .catch(function () {
+                return Promise.resolve();
             });
-        }).catch(function () {
-            useMemory = true;
-            return Promise.resolve();
-        });
     }
 
     /**
@@ -712,18 +836,12 @@ window.APP_CONFIG = {
     function resolveOpenBatchId(photos) {
         const rows = photos || [];
         const stored = loadOpenBatchId();
-        const hasOpen = function (batchId) {
-            const inBatch = rows.filter(function (item) {
-                return item.batchId === batchId;
-            });
-            if (!inBatch.length) {
-                return true;
-            }
-            return !inBatch.some(function (item) {
-                return item.isCollage;
+        const singlesOf = function (batchId) {
+            return rows.filter(function (item) {
+                return item.batchId === batchId && !item.isCollage;
             });
         };
-        if (stored && hasOpen(stored)) {
+        if (stored && singlesOf(stored).length) {
             return stored;
         }
         let latest = "";
@@ -737,10 +855,18 @@ window.APP_CONFIG = {
                 latest = item.batchId;
             }
         });
-        if (latest && hasOpen(latest)) {
+        if (latest) {
             return latest;
         }
-        return makeBatchId();
+        return stored || makeBatchId();
+    }
+
+    /**
+     * 这次有没有真正写进本地库。true 表示关掉页面会丢。
+     * @returns {boolean}
+     */
+    function isPersistWeak() {
+        return persistWeak;
     }
 
     global.PhotoStorage = {
@@ -752,6 +878,9 @@ window.APP_CONFIG = {
         loadOpenBatchId: loadOpenBatchId,
         saveOpenBatchId: saveOpenBatchId,
         resolveOpenBatchId: resolveOpenBatchId,
+        requestPersist: requestPersist,
+        readManifestCount: readManifestCount,
+        isPersistWeak: isPersistWeak,
     };
 })(window);
 
@@ -837,7 +966,16 @@ window.APP_CONFIG = {
     }
 
     /**
-     * 保存一张图到手机。先分享，再下载，保证至少有一条路能留下原图。
+     * 电脑 Chrome 的分享面板经常是空的，点了等于没存。
+     * 只在苹果 Safari 上尝试分享一张图。
+     * @returns {boolean}
+     */
+    function canUseShare() {
+        return isIOS() && !isWeChat() && typeof navigator.share === "function";
+    }
+
+    /**
+     * 保存一张图到手机。苹果可走分享，其它浏览器直接下载。
      * @param {string} dataUrl
      * @param {string} filename
      * @returns {Promise<{method: string}>}
@@ -845,7 +983,7 @@ window.APP_CONFIG = {
     function saveImageToPhone(dataUrl, filename) {
         const blob = dataUrlToBlob(dataUrl);
         try {
-            if (typeof File === "function" && navigator.canShare) {
+            if (canUseShare() && typeof File === "function" && navigator.canShare) {
                 const file = new File([blob], filename, { type: blob.type || "image/jpeg" });
                 if (navigator.canShare({ files: [file] })) {
                     return navigator
@@ -876,7 +1014,30 @@ window.APP_CONFIG = {
     }
 
     /**
-     * 拼图完成后一次存多张：能分享就一张分享页带齐，否则连续下载。
+     * 一张张触发下载。第一张立刻下（还在用户点击里，浏览器不会拦），
+     * 后面隔开一点，避免一次点十个被拦截。
+     * @param {Array<{dataUrl:string,filename:string}>} list
+     * @returns {Promise<void>}
+     */
+    function downloadListSequentially(list) {
+        return new Promise(function (resolve) {
+            let index = 0;
+            function next() {
+                if (index >= list.length) {
+                    resolve();
+                    return;
+                }
+                const item = list[index];
+                index += 1;
+                downloadBlob(dataUrlToBlob(item.dataUrl), item.filename);
+                window.setTimeout(next, 380);
+            }
+            next();
+        });
+    }
+
+    /**
+     * 拼图完成后一次存多张：不走系统分享（空面板会被当成成功），只下载。
      * @param {Array<{dataUrl:string,filename:string}>} items
      * @returns {Promise<{method:string,count:number}>}
      */
@@ -887,56 +1048,9 @@ window.APP_CONFIG = {
         if (!list.length) {
             return Promise.reject(new Error("没有可保存的图片"));
         }
-
-        const files = [];
-        for (let i = 0; i < list.length; i += 1) {
-            const blob = dataUrlToBlob(list[i].dataUrl);
-            if (typeof File === "function") {
-                files.push(
-                    new File([blob], list[i].filename, { type: blob.type || "image/jpeg" })
-                );
-            } else {
-                files.push(blob);
-            }
-        }
-
-        try {
-            if (
-                files[0] &&
-                files[0].name &&
-                navigator.canShare &&
-                navigator.canShare({ files: files })
-            ) {
-                return navigator
-                    .share({
-                        files: files,
-                        title: "本批样品",
-                        text: "拼图和单图",
-                    })
-                    .then(function () {
-                        return { method: "share", count: files.length };
-                    })
-                    .catch(function (err) {
-                        if (err && err.name === "AbortError") {
-                            list.forEach(function (item) {
-                                downloadBlob(dataUrlToBlob(item.dataUrl), item.filename);
-                            });
-                            return { method: "download-after-cancel", count: list.length };
-                        }
-                        list.forEach(function (item) {
-                            downloadBlob(dataUrlToBlob(item.dataUrl), item.filename);
-                        });
-                        return { method: "download", count: list.length };
-                    });
-            }
-        } catch (err) {
-            // 国内浏览器一次分享多张可能失败，改下载
-        }
-
-        list.forEach(function (item) {
-            downloadBlob(dataUrlToBlob(item.dataUrl), item.filename);
+        return downloadListSequentially(list).then(function () {
+            return { method: "download", count: list.length };
         });
-        return Promise.resolve({ method: "download", count: list.length });
     }
 
     /**
@@ -947,7 +1061,7 @@ window.APP_CONFIG = {
         if (isIOS()) {
             return "苹果手机请长按图片 → 选择「存储图像」。发微信时请勾选原图。";
         }
-        return "请长按图片 → 保存到相册。百度浏览器常常不会自动下载。发微信时请勾选原图。";
+        return "图片会进浏览器的「下载内容」。电脑请看下载栏，手机请到文件管理或相册。发微信时请勾选原图。";
     }
 
     global.PhotoSave = {
@@ -1020,14 +1134,56 @@ window.APP_CONFIG = {
     }
 
     /**
-     * 在格子里按「完整显示、不裁切」绘制，留边用深色填。
-     * @param {CanvasRenderingContext2D} ctx
-     * @param {HTMLImageElement} image
-     * @param {number} x
-     * @param {number} y
-     * @param {number} cellW
-     * @param {number} cellH
+     * 读进一张后立刻缩到拼图格子大小，再丢掉原图像素，避免 9 张原图同时占内存。
+     * @param {string} dataUrl
+     * @param {number} maxEdge
+     * @returns {Promise<HTMLImageElement>}
      */
+    function loadImageForCell(dataUrl, maxEdge) {
+        return loadImage(dataUrl).then(function (image) {
+            const longSide = Math.max(image.naturalWidth, image.naturalHeight);
+            const scale = longSide > maxEdge ? maxEdge / longSide : 1;
+            if (scale >= 0.999) {
+                return image;
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+            canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+                return image;
+            }
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            return loadImage(canvas.toDataURL("image/jpeg", CONFIG.JPEG_QUALITY));
+        });
+    }
+
+    function loadImagesOneByOne(urls) {
+        const maxEdge = 1000;
+        const loaded = [];
+        function next(index) {
+            if (index >= urls.length) {
+                return Promise.resolve(loaded);
+            }
+            return loadImageForCell(urls[index], maxEdge)
+                .catch(function () {
+                    return loadImageForCell(urls[index], 720);
+                })
+                .then(function (image) {
+                    loaded.push(image);
+                    return next(index + 1);
+                })
+                .catch(function (err) {
+                    console.warn(err);
+                    loaded.push(null);
+                    return next(index + 1);
+                });
+        }
+        return next(0);
+    }
+
     function drawContain(ctx, image, x, y, cellW, cellH) {
         const scale = Math.min(cellW / image.naturalWidth, cellH / image.naturalHeight);
         const drawW = image.naturalWidth * scale;
@@ -1049,22 +1205,20 @@ window.APP_CONFIG = {
             return Promise.reject(new Error("当前没有可拼的照片"));
         }
 
-        return Promise.all(
-            urls.map(function (url) {
-                return loadImage(url).catch(function (err) {
-                    console.warn(err);
-                    return null;
-                });
-            })
-        ).then(function (images) {
+        return loadImagesOneByOne(urls).then(function (images) {
             const valid = images.filter(Boolean);
             if (!valid.length) {
                 throw new Error("照片都读失败，请重新拍");
             }
+            if (urls.length > 1 && valid.length < 2) {
+                throw new Error(
+                    "只读出 " + valid.length + " / " + urls.length + " 张，请再点一次拼图"
+                );
+            }
 
             const grid = chooseGrid(valid.length);
             const gap = CONFIG.COLLAGE_GAP;
-            const maxEdge = cellMaxOverride || CONFIG.COLLAGE_CELL_MAX;
+            const maxEdge = cellMaxOverride || 1000;
 
             // 格子尺寸取这批图里「较长边」的中位数，再封顶，避免一张超大图把内存打爆
             const longSides = valid.map(function (img) {
@@ -1133,7 +1287,8 @@ window.APP_CONFIG = {
      * @returns {Promise<string>}
      */
     function buildCollageSafe(dataUrls) {
-        const steps = [null, 2560, 2048, 1600];
+        // 先按 1600 拼：原图像素 3×3 会把内存打爆，重试时又只读出 1 张
+        const steps = [1000, 800, 640];
         function tryAt(index) {
             return buildCollage(dataUrls, steps[index]).catch(function (err) {
                 if (index + 1 < steps.length) {
@@ -1359,6 +1514,7 @@ window.APP_CONFIG = {
                 fontSize: defaultFontSize(),
             });
             redraw();
+            notifyMarksChanged();
             return true;
         }
 
@@ -1377,6 +1533,14 @@ window.APP_CONFIG = {
                 marks.pop();
             }
             redraw();
+            notifyMarksChanged();
+        }
+
+        /**
+         * 标注有变动，外面立刻把图存进本地库，不用等点「完成」。
+         */
+        function notifyMarksChanged() {
+            canvas.dispatchEvent(new CustomEvent("marks-changed"));
         }
 
         /**
@@ -1460,6 +1624,7 @@ window.APP_CONFIG = {
             marks.push(drawing);
             drawing = null;
             redraw();
+            notifyMarksChanged();
         }
 
         canvas.addEventListener("pointerdown", onPointerDown);
@@ -1497,6 +1662,107 @@ window.APP_CONFIG = {
     }
 
     /**
+     * 按最长边算出缩小后的宽高。不超过上限就不缩。
+     * @param {number} width
+     * @param {number} height
+     * @param {number} maxEdge
+     * @returns {{width: number, height: number, scale: number}}
+     */
+    function fitWithinMaxEdge(width, height, maxEdge) {
+        const w = Math.max(1, width || 0);
+        const h = Math.max(1, height || 0);
+        const cap = Math.max(1, maxEdge || 1280);
+        const longSide = Math.max(w, h);
+        if (longSide <= cap) {
+            return { width: w, height: h, scale: 1 };
+        }
+        const scale = cap / longSide;
+        return {
+            width: Math.max(1, Math.round(w * scale)),
+            height: Math.max(1, Math.round(h * scale)),
+            scale: scale,
+        };
+    }
+
+    /**
+     * 把画布压成 JPEG，再读回 Image。失败时把原因抛出去。
+     * @param {HTMLCanvasElement} canvas
+     * @param {number} quality
+     * @returns {Promise<HTMLImageElement>}
+     */
+    function canvasToJpegImage(canvas, quality) {
+        const q = typeof quality === "number" ? quality : CONFIG.JPEG_QUALITY;
+        return new Promise(function (resolve, reject) {
+            if (canvas.toBlob) {
+                canvas.toBlob(
+                    function (blob) {
+                        if (!blob) {
+                            reject(new Error("压缩照片失败"));
+                            return;
+                        }
+                        loadByObjectUrl(blob).then(resolve).catch(reject);
+                    },
+                    "image/jpeg",
+                    q
+                );
+                return;
+            }
+            try {
+                const dataUrl = canvas.toDataURL("image/jpeg", q);
+                if (!dataUrl || dataUrl.length < 100) {
+                    reject(new Error("压缩照片失败"));
+                    return;
+                }
+                const image = new Image();
+                image.onload = function () {
+                    if (!image.naturalWidth) {
+                        reject(new Error("压缩后的照片是空的"));
+                        return;
+                    }
+                    resolve(image);
+                };
+                image.onerror = function () {
+                    reject(new Error("压缩后的照片打不开"));
+                };
+                image.src = dataUrl;
+            } catch (err) {
+                reject(err || new Error("压缩照片失败"));
+            }
+        });
+    }
+
+    /**
+     * 单张图超过最长边就缩小，并按配置质量重压 JPEG。
+     * 原图解码逻辑还在，这一步只是读入后立刻降内存。
+     * @param {HTMLImageElement} image
+     * @returns {Promise<HTMLImageElement>}
+     */
+    function shrinkImageIfNeeded(image) {
+        if (!image || !image.naturalWidth || !image.naturalHeight) {
+            return Promise.reject(new Error("照片读出来是空的，请重拍"));
+        }
+        const fit = fitWithinMaxEdge(
+            image.naturalWidth,
+            image.naturalHeight,
+            CONFIG.PHOTO_MAX_EDGE
+        );
+        const canvas = document.createElement("canvas");
+        canvas.width = fit.width;
+        canvas.height = fit.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            return Promise.resolve(image);
+        }
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(image, 0, 0, fit.width, fit.height);
+        return canvasToJpegImage(canvas, CONFIG.JPEG_QUALITY).catch(function () {
+            // 压缩失败不打断拍照，继续用已解码的图
+            return image;
+        });
+    }
+
+    /**
      * 用原文件直接解码成 Image（不再压一遍）。
      * @param {File} file
      * @returns {Promise<HTMLImageElement>}
@@ -1522,39 +1788,38 @@ window.APP_CONFIG = {
     }
 
     /**
-     * 少数浏览器会把 Image 缩得很小；用相机原像素的 Bitmap 兜底。
+     * 少数浏览器会把 Image 缩得很小；用 Bitmap 兜底。
+     * 画到画布时就按最长边缩小，避免先建一张超大原图像素。
      * @param {ImageBitmap} bitmap
      * @returns {Promise<HTMLImageElement>}
      */
     function imageFromBitmap(bitmap) {
+        const fit = fitWithinMaxEdge(
+            bitmap.width,
+            bitmap.height,
+            CONFIG.PHOTO_MAX_EDGE
+        );
         const canvas = document.createElement("canvas");
-        canvas.width = bitmap.width;
-        canvas.height = bitmap.height;
+        canvas.width = fit.width;
+        canvas.height = fit.height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
             bitmap.close();
             return Promise.reject(new Error("无法按原像素解码"));
         }
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(bitmap, 0, 0);
+        // 需要缩小时才开平滑；1:1 仍关闭，避免无谓模糊
+        ctx.imageSmoothingEnabled = fit.scale < 1;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(bitmap, 0, 0, fit.width, fit.height);
         bitmap.close();
-        return new Promise(function (resolve, reject) {
-            canvas.toBlob(
-                function (blob) {
-                    if (!blob) {
-                        reject(new Error("原像素转存失败"));
-                        return;
-                    }
-                    loadByObjectUrl(blob).then(resolve).catch(reject);
-                },
-                "image/jpeg",
-                CONFIG.JPEG_QUALITY
-            );
+        return canvasToJpegImage(canvas, CONFIG.JPEG_QUALITY).catch(function () {
+            return Promise.reject(new Error("原像素转存失败"));
         });
     }
 
     /**
-     * 把文件读成 Image，尽量保留系统相机原分辨率。
+     * 把文件读成 Image。先按原来的方式解码（必要时用 Bitmap 纠正方向），
+     * 最后再缩到 PHOTO_MAX_EDGE，降低单张占用的内存。
      * @param {File} file
      * @returns {Promise<HTMLImageElement>}
      */
@@ -1562,25 +1827,27 @@ window.APP_CONFIG = {
         if (!file) {
             return Promise.reject(new Error("没有选到照片"));
         }
-        return loadByObjectUrl(file).then(function (image) {
-            if (!window.createImageBitmap) {
-                return image;
-            }
-            return createImageBitmap(file, { imageOrientation: "from-image" })
-                .then(function (bitmap) {
-                    const bigger =
-                        bitmap.width > image.naturalWidth ||
-                        bitmap.height > image.naturalHeight;
-                    if (bigger) {
-                        return imageFromBitmap(bitmap);
-                    }
-                    bitmap.close();
+        return loadByObjectUrl(file)
+            .then(function (image) {
+                if (!window.createImageBitmap) {
                     return image;
-                })
-                .catch(function () {
-                    return image;
-                });
-        });
+                }
+                return createImageBitmap(file, { imageOrientation: "from-image" })
+                    .then(function (bitmap) {
+                        const bigger =
+                            bitmap.width > image.naturalWidth ||
+                            bitmap.height > image.naturalHeight;
+                        if (bigger) {
+                            return imageFromBitmap(bitmap);
+                        }
+                        bitmap.close();
+                        return image;
+                    })
+                    .catch(function () {
+                        return image;
+                    });
+            })
+            .then(shrinkImageIfNeeded);
     }
 
     global.PhotoEditor = {
@@ -1625,6 +1892,7 @@ window.APP_CONFIG = {
         btnSaveEdit: $("btnSaveEdit"),
         colorRow: $("colorRow"),
         collagePreview: $("collagePreview"),
+        collageCount: $("collageCount"),
         btnSaveCollage: $("btnSaveCollage"),
         btnBackHome: $("btnBackHome"),
         saveSheet: $("saveSheet"),
@@ -1636,8 +1904,15 @@ window.APP_CONFIG = {
     /** 当前正在标的原图 */
     let editor = null;
     let editorImage = null;
+    /** 当前这张已写入本地库的 id，标注后覆盖同一张，不另存一份 */
+    let currentEditId = "";
+    let currentEditCreatedAt = 0;
     /** 刚拼好、等待保存的拼图 */
     let pendingCollageUrl = "";
+    /** 拼图时已备好的下载清单，点保存时立刻下，不再等数据库 */
+    let pendingSavePack = [];
+    /** 拼图对应的单图 id，保存成功后再从缓存删掉 */
+    let pendingSingleIds = [];
     let currentBatchId = "";
     /** 相册多选后排队，一张张打开标注，不改原来的单张编辑逻辑 */
     let importQueue = [];
@@ -1658,19 +1933,36 @@ window.APP_CONFIG = {
     }
 
     /**
-     * 底部短提示，替代每次全屏长按保存。
+     * 底部短提示。hold 为 true 时不自动消失，给「正在拼图」这种耗时操作用。
      * @param {string} message
+     * @param {boolean} [hold]
      */
-    function showToast(message) {
+    function showToast(message, hold) {
         if (!els.toast) {
             return;
         }
         els.toast.textContent = message;
         els.toast.hidden = false;
         clearTimeout(showToast.timer);
-        showToast.timer = setTimeout(function () {
-            els.toast.hidden = true;
-        }, 2200);
+        if (!hold) {
+            showToast.timer = setTimeout(function () {
+                els.toast.hidden = true;
+            }, 2200);
+        }
+    }
+
+    /**
+     * 先让「正在拼图」画出来，再开始算大图，避免页面冻住时提示出不来。
+     * @returns {Promise<void>}
+     */
+    function waitForPaint() {
+        return new Promise(function (resolve) {
+            window.requestAnimationFrame(function () {
+                window.requestAnimationFrame(function () {
+                    window.setTimeout(resolve, 40);
+                });
+            });
+        });
     }
 
     function logLine(message) {
@@ -1710,9 +2002,7 @@ window.APP_CONFIG = {
      */
     function refreshHome() {
         return window.PhotoStorage.listPhotos().then(function (photos) {
-            const batchPhotos = photos.filter(function (item) {
-                return item.batchId === currentBatchId && !item.isCollage;
-            });
+            const batchPhotos = pickOpenSingles(photos);
             const n = batchPhotos.length;
             els.statusText.textContent = "本批 " + n + " / " + CONFIG.BATCH_SIZE;
             if (els.progressFill) {
@@ -1761,8 +2051,84 @@ window.APP_CONFIG = {
      * @param {File} file
      * @param {boolean} [fromAlbum]
      */
+    /**
+     * 把当前编辑中的图立刻写入本地库。同一张反复覆盖，关掉再开还在。
+     * @param {{ensureText?: boolean, quiet?: boolean}} [options]
+     * @returns {Promise<void>}
+     */
+    function persistCurrentEdit(options) {
+        const opt = options || {};
+        if (!editor) {
+            return Promise.resolve();
+        }
+        const sampleId = (els.textInput.value || "").trim();
+        if (opt.ensureText && sampleId && editor.ensureSampleText) {
+            editor.ensureSampleText(sampleId);
+        }
+        let dataUrl;
+        try {
+            dataUrl = editor.exportDataUrl();
+        } catch (err) {
+            logLine("导出失败：" + err.message);
+            return Promise.reject(err);
+        }
+        if (!currentEditId) {
+            currentEditId =
+                "p-" + Date.now() + "-" + Math.random().toString(16).slice(2, 8);
+            currentEditCreatedAt = Date.now();
+        }
+        const photo = {
+            id: currentEditId,
+            batchId: currentBatchId,
+            sampleId: sampleId,
+            dataUrl: dataUrl,
+            createdAt: currentEditCreatedAt,
+            isCollage: false,
+        };
+        return window.PhotoStorage.savePhoto(photo).then(function () {
+            window.PhotoStorage.saveOpenBatchId(currentBatchId);
+            if (!opt.quiet) {
+                if (window.PhotoStorage.isPersistWeak()) {
+                    showToast("这张没存住，关掉会丢。请用手机浏览器打开网上链接");
+                } else {
+                    showToast("已自动保存");
+                }
+            }
+        });
+    }
+
+    /**
+     * 标注后稍等再存，避免画一笔就卡一下。
+     */
+    function schedulePersist() {
+        clearTimeout(schedulePersist.timer);
+        schedulePersist.timer = setTimeout(function () {
+            persistCurrentEdit({ quiet: true }).catch(function (err) {
+                logLine("自动保存失败：" + err.message);
+            });
+        }, 280);
+    }
+
+    /**
+     * 离开标注页，图已经在库里，不用再点一次保存。
+     */
+    function leaveEditor() {
+        clearTimeout(schedulePersist.timer);
+        if (editor && editor.destroy) {
+            editor.destroy();
+        }
+        editor = null;
+        editorImage = null;
+        currentEditId = "";
+        currentEditCreatedAt = 0;
+        showView("home");
+        return refreshHome();
+    }
+
     function openEditorWithFile(file, fromAlbum) {
         currentFromAlbum = !!fromAlbum;
+        currentEditId = "";
+        currentEditCreatedAt = 0;
         window.PhotoEditor.loadFileAsImage(file)
             .then(function (image) {
                 if (editor && editor.destroy) {
@@ -1779,17 +2145,19 @@ window.APP_CONFIG = {
                     1000000
                 ).toFixed(1);
                 logLine(
-                    "已打开原图 " +
+                    "已打开照片 " +
                         image.naturalWidth +
                         "×" +
                         image.naturalHeight +
                         "（" +
                         mega +
-                        "MP），请立刻写型号"
+                        "MP），已自动保存"
                 );
+                return persistCurrentEdit();
             })
             .catch(function (err) {
                 logLine("打开照片失败：" + err.message);
+                showToast("打开失败：" + err.message);
                 openNextQueuedFile();
             });
     }
@@ -1839,15 +2207,22 @@ window.APP_CONFIG = {
     }
 
     /**
+     * 取出还没拼过的单图，不按批次号过滤，避免只拼到一张。
+     * @param {Array} photos
+     * @returns {Array}
+     */
+    function pickOpenSingles(photos) {
+        return (photos || []).filter(function (item) {
+            return item && !item.isCollage && item.dataUrl;
+        });
+    }
+
+    /**
      * 当前这批未拼过的细节图。
      * @returns {Promise<Array>}
      */
     function getCurrentBatchPhotos() {
-        return window.PhotoStorage.listPhotos().then(function (photos) {
-            return photos.filter(function (item) {
-                return item.batchId === currentBatchId && !item.isCollage;
-            });
-        });
+        return window.PhotoStorage.listPhotos().then(pickOpenSingles);
     }
 
     /**
@@ -1855,26 +2230,64 @@ window.APP_CONFIG = {
      * @param {boolean} autoTrigger
      */
     function makeCollage(autoTrigger) {
-        return getCurrentBatchPhotos().then(function (photos) {
-            if (!photos.length) {
-                throw new Error("还没有已保存的细节图");
-            }
-            logLine((autoTrigger ? "已满 " + CONFIG.BATCH_SIZE + " 张，" : "提前") + "开始拼图");
-            // 一页最多 9 张；多出来的等下一批，避免挤出画布
-            const page = photos.slice(0, CONFIG.BATCH_SIZE);
-            const urls = page.map(function (item) {
-                return item.dataUrl;
-            });
-            return window.PhotoCollage.buildCollage(urls).then(function (dataUrl) {
-                pendingCollageUrl = dataUrl;
-                if (els.collagePreview) {
-                    els.collagePreview.src = dataUrl;
+        showToast("正在拼图，请稍候", true);
+        return waitForPaint()
+            .then(function () {
+                return getCurrentBatchPhotos();
+            })
+            .then(function (photos) {
+                if (!photos.length) {
+                    throw new Error("还没有已保存的细节图");
                 }
-                logLine("拼图已生成，正在保存");
-                // 不再让产线再点一次「保存拼图」
-                return saveCollageAndRotateBatch();
+                // 一页最多 9 张；多出来的等下一批，避免挤出画布
+                const page = photos.slice(0, CONFIG.BATCH_SIZE);
+                logLine(
+                    (autoTrigger ? "已满 " + CONFIG.BATCH_SIZE + " 张，" : "提前") +
+                        "开始拼图，共 " +
+                        page.length +
+                        " 张"
+                );
+                showToast("正在拼图，共 " + page.length + " 张", true);
+                const urls = page.map(function (item) {
+                    return item.dataUrl;
+                });
+                return window.PhotoCollage.buildCollage(urls).then(function (dataUrl) {
+                    pendingCollageUrl = dataUrl;
+                    pendingSavePack = [
+                        {
+                            dataUrl: dataUrl,
+                            filename: "collage_" + currentBatchId + ".jpg",
+                        },
+                    ];
+                    pendingSingleIds = [];
+                    page.forEach(function (item, index) {
+                        const name =
+                            (item.sampleId || "sample") +
+                            "_" +
+                            currentBatchId +
+                            "_" +
+                            String(index + 1).padStart(2, "0") +
+                            ".jpg";
+                        pendingSavePack.push({ dataUrl: item.dataUrl, filename: name });
+                        pendingSingleIds.push(item.id);
+                    });
+                    if (els.collagePreview) {
+                        els.collagePreview.src = dataUrl;
+                        els.collagePreview.alt = page.length + "张拼图";
+                    }
+                    if (els.collageCount) {
+                        els.collageCount.textContent = "本页 " + page.length + " 张";
+                    }
+                    showView("collage");
+                    logLine("拼图已生成，共 " + page.length + " 张，请点「保存拼图」");
+                    showToast("已拼 " + page.length + " 张，请点「保存拼图」");
+                    return page;
+                });
+            })
+            .catch(function (err) {
+                showToast("拼图失败：" + err.message);
+                throw err;
             });
-        });
     }
 
     /**
@@ -1887,47 +2300,18 @@ window.APP_CONFIG = {
     }
 
     /**
-     * 保存标注图：只进本机缓存，不立刻存相册。
+     * 「完成」只是离开标注。图在打开时已经存过，这里再覆盖一次最新标注。
      */
     function saveEditedPhoto() {
         if (!editor) {
             logLine("没有正在编辑的照片");
             return;
         }
-        const sampleId = (els.textInput.value || "").trim();
-        if (sampleId && editor.ensureSampleText) {
-            editor.ensureSampleText(sampleId);
-        }
-        let dataUrl;
-        try {
-            dataUrl = editor.exportDataUrl();
-        } catch (err) {
-            logLine("导出失败：" + err.message);
-            return;
-        }
-
-        const photo = {
-            id: "p-" + Date.now() + "-" + Math.random().toString(16).slice(2, 8),
-            batchId: currentBatchId,
-            sampleId: sampleId,
-            dataUrl: dataUrl,
-            createdAt: Date.now(),
-            isCollage: false,
-        };
-
         els.btnSaveEdit.disabled = true;
-        window.PhotoStorage.savePhoto(photo)
+        persistCurrentEdit({ ensureText: true })
             .then(function () {
-                window.PhotoStorage.saveOpenBatchId(currentBatchId);
-                logLine("已入缓存" + (sampleId ? "（" + sampleId + "）" : "") + "，拼图后再一起存相册");
-                showToast("已加入本批");
-                if (editor && editor.destroy) {
-                    editor.destroy();
-                }
-                editor = null;
-                editorImage = null;
-                showView("home");
-                return refreshHome();
+                logLine("已更新本张，返回本批");
+                return leaveEditor();
             })
             .then(function (batchPhotos) {
                 if (batchPhotos.length >= CONFIG.BATCH_SIZE) {
@@ -1938,6 +2322,7 @@ window.APP_CONFIG = {
             })
             .catch(function (err) {
                 logLine("保存失败：" + err.message);
+                showToast("没存住：" + err.message);
             })
             .then(function () {
                 els.btnSaveEdit.disabled = false;
@@ -1945,50 +2330,41 @@ window.APP_CONFIG = {
     }
 
     /**
-     * 拼图后把拼图和本批单图一次存进相册，再开新批次。
+     * 拼图后把拼图和本批单图存到手机。
+     * 单图仍留在本批，只有用户点「清空」才删除。
      */
     function saveCollageAndRotateBatch() {
-        if (!pendingCollageUrl) {
+        if (!pendingCollageUrl || !pendingSavePack.length) {
             logLine("没有待保存的拼图");
             return Promise.resolve();
         }
-        const filename = "collage_" + currentBatchId + ".jpg";
+        const collageUrl = pendingCollageUrl;
+        const pack = pendingSavePack.slice();
         const record = {
             id: "c-" + Date.now(),
             batchId: currentBatchId,
             sampleId: "拼图",
-            dataUrl: pendingCollageUrl,
+            dataUrl: collageUrl,
             createdAt: Date.now(),
             isCollage: true,
         };
 
         els.btnSaveCollage.disabled = true;
-        return getCurrentBatchPhotos()
-            .then(function (singles) {
-                const pack = [
-                    { dataUrl: pendingCollageUrl, filename: filename },
-                ];
-                singles.forEach(function (item, index) {
-                    const name =
-                        (item.sampleId || "sample") +
-                        "_" +
-                        currentBatchId +
-                        "_" +
-                        String(index + 1).padStart(2, "0") +
-                        ".jpg";
-                    pack.push({ dataUrl: item.dataUrl, filename: name });
-                });
-                return window.PhotoSave.saveManyToPhone(pack).then(function () {
-                    return window.PhotoStorage.savePhoto(record).then(function () {
-                        return singles.length;
-                    });
-                });
+        // 立刻开始下载，保留这次点击手势，避免浏览器拦截
+        return window.PhotoSave.saveManyToPhone(pack)
+            .then(function () {
+                return window.PhotoStorage.savePhoto(record);
             })
-            .then(function (singleCount) {
-                logLine("已保存拼图和 " + singleCount + " 张单图，开始下一批");
-                showToast("已保存拼图 + " + singleCount + " 张单图");
+            .then(function () {
+                const singleCount = Math.max(0, pack.length - 1);
+                logLine("已开始下载拼图和 " + singleCount + " 张单图，照片仍留在本批");
+                showToast("已开始下载，照片还在，要点清空才删");
+                if (window.PhotoSave.isIOS()) {
+                    showSaveSheet(collageUrl);
+                }
                 pendingCollageUrl = "";
-                setCurrentBatch(window.PhotoStorage.makeBatchId());
+                pendingSavePack = [];
+                pendingSingleIds = [];
                 showView("home");
                 return refreshHome();
             })
@@ -1997,6 +2373,7 @@ window.APP_CONFIG = {
             })
             .catch(function (err) {
                 logLine("拼图保存失败：" + err.message);
+                showToast("还没存下，照片还在，请再点一次保存");
             })
             .then(function () {
                 els.btnSaveCollage.disabled = false;
@@ -2032,16 +2409,25 @@ window.APP_CONFIG = {
             }
         });
         els.btnCancelEdit.addEventListener("click", function () {
-            if (editor && editor.destroy) {
-                editor.destroy();
-            }
-            editor = null;
-            editorImage = null;
-            showView("home");
-            logLine("已跳过这张，未保存");
-            openNextQueuedFile();
+            persistCurrentEdit({ quiet: true })
+                .catch(function () {
+                    return null;
+                })
+                .then(function () {
+                    logLine("已返回，这张早就自动保存了");
+                    return leaveEditor();
+                })
+                .then(function () {
+                    openNextQueuedFile();
+                });
         });
         els.btnSaveEdit.addEventListener("click", saveEditedPhoto);
+        els.editorCanvas.addEventListener("marks-changed", function () {
+            schedulePersist();
+        });
+        els.textInput.addEventListener("change", function () {
+            schedulePersist();
+        });
 
         els.editorCanvas.addEventListener("place-text", function (event) {
             if (!editor) {
@@ -2076,6 +2462,8 @@ window.APP_CONFIG = {
         els.btnSaveCollage.addEventListener("click", saveCollageAndRotateBatch);
         els.btnBackHome.addEventListener("click", function () {
             pendingCollageUrl = "";
+            pendingSavePack = [];
+            pendingSingleIds = [];
             showView("home");
             openNextQueuedFile();
         });
@@ -2119,23 +2507,38 @@ window.APP_CONFIG = {
         bindEvents();
         setToolActive("text");
         showView("home");
+        if (window.PhotoStorage.requestPersist) {
+            window.PhotoStorage.requestPersist();
+        }
         window.PhotoStorage.listPhotos()
             .then(function (photos) {
                 setCurrentBatch(window.PhotoStorage.resolveOpenBatchId(photos));
-                const leftover = photos.filter(function (item) {
-                    return item.batchId === currentBatchId && !item.isCollage;
-                });
+                const leftover = pickOpenSingles(photos);
                 if (leftover.length) {
                     logLine("已恢复未完成批次，共 " + leftover.length + " 张");
-                    showToast("已恢复 " + leftover.length + " 张未拼完");
+                    showToast("已恢复 " + leftover.length + " 张，关掉也会留着");
+                } else if (
+                    window.PhotoStorage.readManifestCount &&
+                    window.PhotoStorage.readManifestCount() > 0
+                ) {
+                    logLine("本地库是空的，但上次记过有图");
+                    showToast("上次的图被浏览器清掉了，不要用无痕或微信");
                 } else {
-                    logLine("新批次 " + currentBatchId + "。完成只入缓存，拼图后一起存相册");
+                    logLine("新批次 " + currentBatchId + "。完成会记住，关掉再开还在");
                 }
                 return refreshHome();
             })
             .catch(function (err) {
                 logLine("初始化失败：" + err.message);
             });
+        window.addEventListener("pageshow", function () {
+            refreshHome();
+        });
+        window.addEventListener("pagehide", function () {
+            if (editor) {
+                persistCurrentEdit({ quiet: true, ensureText: true });
+            }
+        });
     }
 
     if (document.readyState === "loading") {

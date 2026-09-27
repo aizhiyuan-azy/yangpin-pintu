@@ -1,27 +1,32 @@
 /**
- * 用 IndexedDB 保存本批次标注图，刷新页面也不会丢。
- * 只存已经「完成标注」的图，不存拍摄中的临时数据。
+ * 用 IndexedDB 保存本批次标注图。关掉浏览器、过半小时再来，图还在。
+ * 只存已经「完成标注」的图。只有点「清空」才整批删除。
  */
 (function (global) {
     const CONFIG = global.APP_CONFIG;
     const STORE = "photos";
-    /** 离线单文件（file://）时 IndexedDB 可能不可用，用内存顶上 */
+    const MANIFEST_KEY = CONFIG.BATCH_KEY + "-n";
+    /** 本页临时备份。不能代替本地库，关掉页面就会没 */
     const memoryRows = [];
-    let useMemory = false;
+    /** 这次没写进本地库，关掉会丢，界面要提醒 */
+    let persistWeak = false;
 
     /**
-     * 打开（或创建）本地数据库。
+     * 打开（或创建）本地数据库。每次都试，不因为一次失败就放弃。
      * @returns {Promise<IDBDatabase>}
      */
     function openDb() {
         return new Promise(function (resolve, reject) {
-            if (useMemory || !window.indexedDB) {
-                reject(new Error("改用内存缓存"));
+            if (!window.indexedDB) {
+                reject(new Error("浏览器没有本地库"));
                 return;
             }
             const request = indexedDB.open(CONFIG.DB_NAME, CONFIG.DB_VERSION);
             request.onerror = function () {
                 reject(request.error || new Error("打开本地缓存失败"));
+            };
+            request.onblocked = function () {
+                reject(new Error("本地库被占用"));
             };
             request.onsuccess = function () {
                 resolve(request.result);
@@ -35,6 +40,23 @@
                 }
             };
         });
+    }
+
+    /**
+     * 向浏览器申请「不要自动清掉这个网页的缓存」。
+     * @returns {Promise<boolean>}
+     */
+    function requestPersist() {
+        try {
+            if (navigator.storage && navigator.storage.persist) {
+                return navigator.storage.persist().catch(function () {
+                    return false;
+                });
+            }
+        } catch (err) {
+            // 旧浏览器没有这个接口
+        }
+        return Promise.resolve(false);
     }
 
     /**
@@ -57,12 +79,37 @@
     }
 
     /**
-     * 写入一张已标注照片。
-     * @param {Object} photo
-     * @returns {Promise<void>}
+     * 未拼完单图张数，写在 localStorage，用来发现「库被清掉了」。
+     * @param {Array} photos
      */
-    function saveToMemory(photo) {
-        useMemory = true;
+    function writeManifest(photos) {
+        try {
+            const n = (photos || []).filter(function (item) {
+                return !item.isCollage;
+            }).length;
+            localStorage.setItem(MANIFEST_KEY, String(n));
+        } catch (err) {
+            // 无痕模式可能写不了
+        }
+    }
+
+    /**
+     * 上次记住的单图张数。读不到当 0。
+     * @returns {number}
+     */
+    function readManifestCount() {
+        try {
+            return parseInt(localStorage.getItem(MANIFEST_KEY) || "0", 10) || 0;
+        } catch (err) {
+            return 0;
+        }
+    }
+
+    /**
+     * 本页内存里也留一份，仅供本地库暂时打不开时顶上。
+     * @param {Object} photo
+     */
+    function rememberInRam(photo) {
         let found = false;
         for (let i = 0; i < memoryRows.length; i += 1) {
             if (memoryRows[i].id === photo.id) {
@@ -74,57 +121,116 @@
         if (!found) {
             memoryRows.push(photo);
         }
-        return Promise.resolve();
     }
 
-    function savePhoto(photo) {
-        return openDb().then(function (db) {
-            return new Promise(function (resolve, reject) {
-                const tx = db.transaction(STORE, "readwrite");
-                tx.oncomplete = function () {
-                    resolve();
-                };
-                tx.onerror = function () {
-                    reject(tx.error || new Error("保存照片失败"));
-                };
-                tx.objectStore(STORE).put(photo);
-            });
-        }).catch(function () {
-            return saveToMemory(photo);
+    function sortByTime(rows) {
+        const list = (rows || []).slice();
+        list.sort(function (a, b) {
+            return (a.createdAt || 0) - (b.createdAt || 0);
+        });
+        return list;
+    }
+
+    /**
+     * 从已打开的库读出全部照片。
+     * @param {IDBDatabase} db
+     * @returns {Promise<Array>}
+     */
+    function readAllFromDb(db) {
+        return new Promise(function (resolve, reject) {
+            const tx = db.transaction(STORE, "readonly");
+            const rows = [];
+            const request = tx.objectStore(STORE).openCursor();
+            request.onsuccess = function (event) {
+                const cursor = event.target.result;
+                if (cursor) {
+                    rows.push(cursor.value);
+                    cursor.continue();
+                } else {
+                    resolve(sortByTime(rows));
+                }
+            };
+            request.onerror = function () {
+                reject(request.error || new Error("读取照片失败"));
+            };
         });
     }
 
     /**
-     * 读取全部照片，按时间从旧到新。
+     * 本地库和本页内存合并。库只写出 1 张、后面几张还在内存时，拼图不能只用库里那一张。
+     * @param {Array} dbRows
+     * @param {Array} ramRows
+     * @returns {Array}
+     */
+    function mergeRows(dbRows, ramRows) {
+        const map = {};
+        (dbRows || []).forEach(function (item) {
+            if (item && item.id) {
+                map[item.id] = item;
+            }
+        });
+        (ramRows || []).forEach(function (item) {
+            if (item && item.id) {
+                map[item.id] = item;
+            }
+        });
+        const merged = [];
+        Object.keys(map).forEach(function (key) {
+            merged.push(map[key]);
+        });
+        return sortByTime(merged);
+    }
+
+    /**
+     * 写入一张已标注照片。先写本地库，成功才算记住。
+     * @param {Object} photo
+     * @returns {Promise<void>}
+     */
+    function savePhoto(photo) {
+        rememberInRam(photo);
+        return openDb()
+            .then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    const tx = db.transaction(STORE, "readwrite");
+                    tx.oncomplete = function () {
+                        persistWeak = false;
+                        resolve();
+                    };
+                    tx.onerror = function () {
+                        reject(tx.error || new Error("保存照片失败"));
+                    };
+                    tx.objectStore(STORE).put(photo);
+                }).then(function () {
+                    writeManifest(memoryRows);
+                });
+            })
+            .catch(function () {
+                persistWeak = true;
+                writeManifest(memoryRows);
+                return Promise.resolve();
+            });
+    }
+
+    /**
+     * 读取全部照片，按时间从旧到新。优先本地库，关掉再开也能读到。
      * @returns {Promise<Array>}
      */
     function listPhotos() {
-        if (useMemory) {
-            const rows = memoryRows.slice();
-            rows.sort(function (a, b) {
-                return (a.createdAt || 0) - (b.createdAt || 0);
+        return openDb()
+            .then(function (db) {
+                return readAllFromDb(db).then(function (rows) {
+                    const merged = mergeRows(rows, memoryRows);
+                    if (merged.length) {
+                        persistWeak = merged.length > rows.length;
+                    }
+                    writeManifest(merged);
+                    return merged;
+                });
+            })
+            .catch(function () {
+                persistWeak = memoryRows.length > 0 || persistWeak;
+                return sortByTime(memoryRows);
             });
-            return Promise.resolve(rows);
-        }
-        return openDb().then(function (db) {
-            return new Promise(function (resolve, reject) {
-                const tx = db.transaction(STORE, "readonly");
-                const request = tx.objectStore(STORE).getAll();
-                request.onsuccess = function () {
-                    const rows = request.result || [];
-                    rows.sort(function (a, b) {
-                        return (a.createdAt || 0) - (b.createdAt || 0);
-                    });
-                    resolve(rows);
-                };
-                request.onerror = function () {
-                    reject(request.error || new Error("读取照片失败"));
-                };
-            });
-        }).catch(function () {
-            useMemory = true;
-            return Promise.resolve(memoryRows.slice());
-        });
     }
 
     /**
@@ -133,55 +239,56 @@
      * @returns {Promise<void>}
      */
     function deletePhoto(photoId) {
-        if (useMemory) {
-            for (let i = memoryRows.length - 1; i >= 0; i -= 1) {
-                if (memoryRows[i].id === photoId) {
-                    memoryRows.splice(i, 1);
-                }
+        for (let i = memoryRows.length - 1; i >= 0; i -= 1) {
+            if (memoryRows[i].id === photoId) {
+                memoryRows.splice(i, 1);
             }
-            return Promise.resolve();
         }
-        return openDb().then(function (db) {
-            return new Promise(function (resolve, reject) {
-                const tx = db.transaction(STORE, "readwrite");
-                tx.oncomplete = function () {
-                    resolve();
-                };
-                tx.onerror = function () {
-                    reject(tx.error || new Error("删除照片失败"));
-                };
-                tx.objectStore(STORE).delete(photoId);
+        return openDb()
+            .then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    const tx = db.transaction(STORE, "readwrite");
+                    tx.oncomplete = function () {
+                        resolve();
+                    };
+                    tx.onerror = function () {
+                        reject(tx.error || new Error("删除照片失败"));
+                    };
+                    tx.objectStore(STORE).delete(photoId);
+                }).then(function () {
+                    writeManifest(memoryRows);
+                });
+            })
+            .catch(function () {
+                writeManifest(memoryRows);
+                return Promise.resolve();
             });
-        }).catch(function () {
-            useMemory = true;
-            return deletePhoto(photoId);
-        });
     }
 
     /**
-     * 清空全部缓存（换班或开始新任务时用）。
+     * 清空全部缓存（只有用户点「清空」时才走这里）。
      * @returns {Promise<void>}
      */
     function clearAll() {
         memoryRows.length = 0;
-        if (useMemory) {
-            return Promise.resolve();
-        }
-        return openDb().then(function (db) {
-            return new Promise(function (resolve, reject) {
-                const tx = db.transaction(STORE, "readwrite");
-                tx.oncomplete = function () {
-                    resolve();
-                };
-                tx.onerror = function () {
-                    reject(tx.error || new Error("清空缓存失败"));
-                };
-                tx.objectStore(STORE).clear();
+        persistWeak = false;
+        writeManifest([]);
+        return openDb()
+            .then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    const tx = db.transaction(STORE, "readwrite");
+                    tx.oncomplete = function () {
+                        resolve();
+                    };
+                    tx.onerror = function () {
+                        reject(tx.error || new Error("清空缓存失败"));
+                    };
+                    tx.objectStore(STORE).clear();
+                });
+            })
+            .catch(function () {
+                return Promise.resolve();
             });
-        }).catch(function () {
-            useMemory = true;
-            return Promise.resolve();
-        });
     }
 
     /**
@@ -220,18 +327,12 @@
     function resolveOpenBatchId(photos) {
         const rows = photos || [];
         const stored = loadOpenBatchId();
-        const hasOpen = function (batchId) {
-            const inBatch = rows.filter(function (item) {
-                return item.batchId === batchId;
-            });
-            if (!inBatch.length) {
-                return true;
-            }
-            return !inBatch.some(function (item) {
-                return item.isCollage;
+        const singlesOf = function (batchId) {
+            return rows.filter(function (item) {
+                return item.batchId === batchId && !item.isCollage;
             });
         };
-        if (stored && hasOpen(stored)) {
+        if (stored && singlesOf(stored).length) {
             return stored;
         }
         let latest = "";
@@ -245,10 +346,18 @@
                 latest = item.batchId;
             }
         });
-        if (latest && hasOpen(latest)) {
+        if (latest) {
             return latest;
         }
-        return makeBatchId();
+        return stored || makeBatchId();
+    }
+
+    /**
+     * 这次有没有真正写进本地库。true 表示关掉页面会丢。
+     * @returns {boolean}
+     */
+    function isPersistWeak() {
+        return persistWeak;
     }
 
     global.PhotoStorage = {
@@ -260,5 +369,8 @@
         loadOpenBatchId: loadOpenBatchId,
         saveOpenBatchId: saveOpenBatchId,
         resolveOpenBatchId: resolveOpenBatchId,
+        requestPersist: requestPersist,
+        readManifestCount: readManifestCount,
+        isPersistWeak: isPersistWeak,
     };
 })(window);

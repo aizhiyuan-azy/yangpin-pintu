@@ -80,7 +80,16 @@
     }
 
     /**
-     * 保存一张图到手机。先分享，再下载，保证至少有一条路能留下原图。
+     * 电脑 Chrome 的分享面板经常是空的，点了等于没存。
+     * 只在苹果 Safari 上尝试分享一张图。
+     * @returns {boolean}
+     */
+    function canUseShare() {
+        return isIOS() && !isWeChat() && typeof navigator.share === "function";
+    }
+
+    /**
+     * 保存一张图到手机。苹果可走分享，其它浏览器直接下载。
      * @param {string} dataUrl
      * @param {string} filename
      * @returns {Promise<{method: string}>}
@@ -88,7 +97,7 @@
     function saveImageToPhone(dataUrl, filename) {
         const blob = dataUrlToBlob(dataUrl);
         try {
-            if (typeof File === "function" && navigator.canShare) {
+            if (canUseShare() && typeof File === "function" && navigator.canShare) {
                 const file = new File([blob], filename, { type: blob.type || "image/jpeg" });
                 if (navigator.canShare({ files: [file] })) {
                     return navigator
@@ -119,7 +128,30 @@
     }
 
     /**
-     * 拼图完成后一次存多张：能分享就一张分享页带齐，否则连续下载。
+     * 一张张触发下载。第一张立刻下（还在用户点击里，浏览器不会拦），
+     * 后面隔开一点，避免一次点十个被拦截。
+     * @param {Array<{dataUrl:string,filename:string}>} list
+     * @returns {Promise<void>}
+     */
+    function downloadListSequentially(list) {
+        return new Promise(function (resolve) {
+            let index = 0;
+            function next() {
+                if (index >= list.length) {
+                    resolve();
+                    return;
+                }
+                const item = list[index];
+                index += 1;
+                downloadBlob(dataUrlToBlob(item.dataUrl), item.filename);
+                window.setTimeout(next, 380);
+            }
+            next();
+        });
+    }
+
+    /**
+     * 拼图完成后一次存多张：不走系统分享（空面板会被当成成功），只下载。
      * @param {Array<{dataUrl:string,filename:string}>} items
      * @returns {Promise<{method:string,count:number}>}
      */
@@ -130,56 +162,9 @@
         if (!list.length) {
             return Promise.reject(new Error("没有可保存的图片"));
         }
-
-        const files = [];
-        for (let i = 0; i < list.length; i += 1) {
-            const blob = dataUrlToBlob(list[i].dataUrl);
-            if (typeof File === "function") {
-                files.push(
-                    new File([blob], list[i].filename, { type: blob.type || "image/jpeg" })
-                );
-            } else {
-                files.push(blob);
-            }
-        }
-
-        try {
-            if (
-                files[0] &&
-                files[0].name &&
-                navigator.canShare &&
-                navigator.canShare({ files: files })
-            ) {
-                return navigator
-                    .share({
-                        files: files,
-                        title: "本批样品",
-                        text: "拼图和单图",
-                    })
-                    .then(function () {
-                        return { method: "share", count: files.length };
-                    })
-                    .catch(function (err) {
-                        if (err && err.name === "AbortError") {
-                            list.forEach(function (item) {
-                                downloadBlob(dataUrlToBlob(item.dataUrl), item.filename);
-                            });
-                            return { method: "download-after-cancel", count: list.length };
-                        }
-                        list.forEach(function (item) {
-                            downloadBlob(dataUrlToBlob(item.dataUrl), item.filename);
-                        });
-                        return { method: "download", count: list.length };
-                    });
-            }
-        } catch (err) {
-            // 国内浏览器一次分享多张可能失败，改下载
-        }
-
-        list.forEach(function (item) {
-            downloadBlob(dataUrlToBlob(item.dataUrl), item.filename);
+        return downloadListSequentially(list).then(function () {
+            return { method: "download", count: list.length };
         });
-        return Promise.resolve({ method: "download", count: list.length });
     }
 
     /**
@@ -190,7 +175,7 @@
         if (isIOS()) {
             return "苹果手机请长按图片 → 选择「存储图像」。发微信时请勾选原图。";
         }
-        return "请长按图片 → 保存到相册。百度浏览器常常不会自动下载。发微信时请勾选原图。";
+        return "图片会进浏览器的「下载内容」。电脑请看下载栏，手机请到文件管理或相册。发微信时请勾选原图。";
     }
 
     global.PhotoSave = {

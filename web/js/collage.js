@@ -55,14 +55,56 @@
     }
 
     /**
-     * 在格子里按「完整显示、不裁切」绘制，留边用深色填。
-     * @param {CanvasRenderingContext2D} ctx
-     * @param {HTMLImageElement} image
-     * @param {number} x
-     * @param {number} y
-     * @param {number} cellW
-     * @param {number} cellH
+     * 读进一张后立刻缩到拼图格子大小，再丢掉原图像素，避免 9 张原图同时占内存。
+     * @param {string} dataUrl
+     * @param {number} maxEdge
+     * @returns {Promise<HTMLImageElement>}
      */
+    function loadImageForCell(dataUrl, maxEdge) {
+        return loadImage(dataUrl).then(function (image) {
+            const longSide = Math.max(image.naturalWidth, image.naturalHeight);
+            const scale = longSide > maxEdge ? maxEdge / longSide : 1;
+            if (scale >= 0.999) {
+                return image;
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+            canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+                return image;
+            }
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            return loadImage(canvas.toDataURL("image/jpeg", CONFIG.JPEG_QUALITY));
+        });
+    }
+
+    function loadImagesOneByOne(urls) {
+        const maxEdge = 1000;
+        const loaded = [];
+        function next(index) {
+            if (index >= urls.length) {
+                return Promise.resolve(loaded);
+            }
+            return loadImageForCell(urls[index], maxEdge)
+                .catch(function () {
+                    return loadImageForCell(urls[index], 720);
+                })
+                .then(function (image) {
+                    loaded.push(image);
+                    return next(index + 1);
+                })
+                .catch(function (err) {
+                    console.warn(err);
+                    loaded.push(null);
+                    return next(index + 1);
+                });
+        }
+        return next(0);
+    }
+
     function drawContain(ctx, image, x, y, cellW, cellH) {
         const scale = Math.min(cellW / image.naturalWidth, cellH / image.naturalHeight);
         const drawW = image.naturalWidth * scale;
@@ -84,22 +126,20 @@
             return Promise.reject(new Error("当前没有可拼的照片"));
         }
 
-        return Promise.all(
-            urls.map(function (url) {
-                return loadImage(url).catch(function (err) {
-                    console.warn(err);
-                    return null;
-                });
-            })
-        ).then(function (images) {
+        return loadImagesOneByOne(urls).then(function (images) {
             const valid = images.filter(Boolean);
             if (!valid.length) {
                 throw new Error("照片都读失败，请重新拍");
             }
+            if (urls.length > 1 && valid.length < 2) {
+                throw new Error(
+                    "只读出 " + valid.length + " / " + urls.length + " 张，请再点一次拼图"
+                );
+            }
 
             const grid = chooseGrid(valid.length);
             const gap = CONFIG.COLLAGE_GAP;
-            const maxEdge = cellMaxOverride || CONFIG.COLLAGE_CELL_MAX;
+            const maxEdge = cellMaxOverride || 1000;
 
             // 格子尺寸取这批图里「较长边」的中位数，再封顶，避免一张超大图把内存打爆
             const longSides = valid.map(function (img) {
@@ -168,7 +208,8 @@
      * @returns {Promise<string>}
      */
     function buildCollageSafe(dataUrls) {
-        const steps = [null, 2560, 2048, 1600];
+        // 先按 1600 拼：原图像素 3×3 会把内存打爆，重试时又只读出 1 张
+        const steps = [1000, 800, 640];
         function tryAt(index) {
             return buildCollage(dataUrls, steps[index]).catch(function (err) {
                 if (index + 1 < steps.length) {
